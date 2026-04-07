@@ -1,0 +1,662 @@
+﻿@model IEnumerable<ProjectsDashboards.Models.PaymentClaim>
+
+@{
+    ViewData["Title"] = "Payment Claims";
+
+    // Get unique projects for filtering
+    var projects = Model?.Select(c => c.Project).Where(p => p != null).Distinct().OrderBy(p => p?.ProjectName).ToList() ?? new List<Project>();
+
+    // Group claims by project for grouped view
+    var claimsByProject = Model?.GroupBy(c => c.ProjectId)
+                               .OrderBy(g => g.First().Project?.ProjectName)
+                               .ToList() ?? new List<IGrouping<int, PaymentClaim>>();
+
+    // Calculate summary statistics
+    var totalClaims = Model?.Count() ?? 0;
+    var totalAmount = Model?.Sum(c => c.ClaimAmount) ?? 0;
+    var averageAmount = totalClaims > 0 ? totalAmount / totalClaims : 0;
+    var minAmount = Model?.Min(c => c.ClaimAmount) ?? 0;
+    var maxAmount = Model?.Max(c => c.ClaimAmount) ?? 0;
+
+    // Get unique years for date filtering
+    var years = Model?.Select(c => c.ClaimDate.Year).Distinct().OrderByDescending(y => y).ToList() ?? new List<int>();
+}
+
+<div class="container-fluid py-4">
+    <!-- Header with Title and Create Button -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i class="fas fa-file-invoice me-2" style="color: #10b981;"></i>
+            Payment Claims
+        </h1>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create New Claim
+        </a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Interactive Statistics Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card clickable-claims-card" data-claims-filter="all">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon me-3" style="background: rgba(79, 70, 229, 0.1); color: #4f46e5;">
+                        <i class="fas fa-file-invoice"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total Claims</div>
+                        <div class="stat-value">@totalClaims</div>
+                    </div>
+                </div>
+                <div class="card-hover-effect">
+                    <i class="fas fa-eye"></i> Click to view all claims
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card clickable-claims-card" data-claims-filter="high-value">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon me-3" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total Amount</div>
+                        <div class="stat-value">@totalAmount.ToString("N0") SAR</div>
+                    </div>
+                </div>
+                <div class="card-hover-effect">
+                    <i class="fas fa-eye"></i> Click to view highest claims
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon me-3" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Average</div>
+                        <div class="stat-value">@averageAmount.ToString("N0") SAR</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon me-3" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Min - Max</div>
+                        <div class="stat-value small">@minAmount.ToString("N0") - @maxAmount.ToString("N0") SAR</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and View Options Card -->
+    <div class="chart-container mb-4">
+        <div class="row g-3">
+            <div class="col-md-7">
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <span class="text-muted"><i class="fas fa-filter"></i> Filter by:</span>
+
+                    <select id="projectFilter" class="form-select form-select-sm" style="width: 180px;">
+                        <option value="all">All Projects</option>
+                        @foreach (var project in projects.Where(p => p != null))
+                        {
+                            <option value="@project.Id">@project.ProjectName</option>
+                        }
+                    </select>
+
+                    <select id="yearFilter" class="form-select form-select-sm" style="width: 120px;">
+                        <option value="all">All Years</option>
+                        @foreach (var year in years)
+                        {
+                            <option value="@year">@year</option>
+                        }
+                    </select>
+
+                    <select id="monthFilter" class="form-select form-select-sm" style="width: 120px;">
+                        <option value="all">All Months</option>
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </select>
+
+                    <span class="ms-2 text-muted"><i class="fas fa-sort-amount-up"></i> Amount:</span>
+                    <select id="amountFilter" class="form-select form-select-sm" style="width: 150px;">
+                        <option value="all">All Amounts</option>
+                        <option value="high">Highest First</option>
+                        <option value="low">Lowest First</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-5 text-end">
+                <div class="btn-group" role="group">
+                    <button type="button" id="viewTable" class="btn btn-sm btn-outline-primary active">
+                        <i class="fas fa-table"></i> Table
+                    </button>
+                    <button type="button" id="viewGrouped" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-layer-group"></i> Group by Project
+                    </button>
+                </div>
+                <button type="button" id="clearFilters" class="btn btn-sm btn-outline-secondary ms-2">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- Search Box -->
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="fas fa-search text-muted"></i>
+                    </span>
+                    <input type="text" id="searchInput" class="form-control border-start-0" placeholder="Search by project, description, or amount...">
+                </div>
+            </div>
+            <div class="col-md-6 text-end">
+                <span id="resultCount" class="badge bg-info p-2">@totalClaims items</span>
+            </div>
+        </div>
+
+        <!-- Active Filters Display -->
+        <div id="activeFilters" class="mt-2" style="min-height: 30px;"></div>
+    </div>
+
+    <!-- Table View (Default) -->
+    <div id="tableView" class="chart-container">
+        <div class="table-responsive">
+            <table class="table table-custom table-hover" id="claimsTable">
+                <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th>Description</th>
+                        <th>Claim Amount</th>
+                        <th>Claim Date</th>
+                        <th>Month Payment</th>
+                        <th>Approved Date</th>
+                        <th>VAT Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model ?? new List<PaymentClaim>())
+                    {
+                        <tr data-project-id="@item.ProjectId"
+                            data-project-name="@(item.Project?.ProjectName ?? "")"
+                            data-description="@(item.Description ?? "")"
+                            data-amount="@item.ClaimAmount"
+                            data-claim-date="@item.ClaimDate.ToString("yyyy-MM-dd")"
+                            data-year="@item.ClaimDate.Year"
+                            data-month="@item.ClaimDate.Month"
+                            data-claim-id="@item.Id">
+                            <td>
+                                <a asp-controller="Projects" asp-action="Details" asp-route-id="@item.ProjectId" class="text-decoration-none fw-bold">
+                                    <i class="fas fa-folder-open me-1 text-primary"></i>
+                                    @(item.Project?.ProjectName ?? "N/A")
+                                </a>
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(item.Description))
+                                {
+                                    <span title="@item.Description">
+                                        @(item.Description.Length > 50 ? item.Description.Substring(0, 50) + "..." : item.Description)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                            <td class="fw-bold text-success">
+                                @item.ClaimAmount.ToString("N0") SAR
+                            </td>
+                            <td data-sort="@item.ClaimDate.ToString("yyyy-MM-dd")">@item.ClaimDate.ToString("dd/MM/yyyy")</td>
+                            <td>@(item.MonthPayment ?? "-")</td>
+                            <td>@(item.ApprovedDate?.ToString("dd/MM/yyyy") ?? "-")</td>
+                            <td>@(item.VATDate?.ToString("dd/MM/yyyy") ?? "-")</td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-warning" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    @if (User.IsInRole("Owner") || User.IsInRole("Accountant"))
+                                    {
+                                        <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-danger" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    }
+
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model != null && Model.Any())
+                {
+                    <tfoot>
+                        <tr class="table-info fw-bold">
+                            <td class="text-end">Totals:</td>
+                            <td></td>
+                            <td>@totalAmount.ToString("N0") SAR</td>
+                            <td colspan="5"></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+
+            @if (Model == null || !Model.Any())
+            {
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-info-circle me-2"></i>No payment claims found.
+                    <a asp-action="Create" class="btn btn-link">Create your first claim</a>
+                </div>
+            }
+
+            <!-- No Results Message -->
+            <div id="noResultsMessage" class="text-center text-muted py-4" style="display: none;">
+                <i class="fas fa-search me-2"></i>No payment claims match your filters.
+                <a href="#" id="clearFiltersLink">Clear filters</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grouped View (by Project) -->
+    <div id="groupedView" class="chart-container" style="display: none;">
+        @foreach (var projectGroup in claimsByProject)
+        {
+            var project = projectGroup.First().Project;
+            var projectClaims = projectGroup.ToList();
+            var projectTotal = projectClaims.Sum(c => c.ClaimAmount);
+
+            <div class="project-group mb-4" data-project-id="@project?.Id">
+                <!-- Project Header -->
+                <div class="project-header bg-light p-3 rounded mb-2 clickable-project" data-project-id="@project?.Id" data-project-name="@(project?.ProjectName ?? "")">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">
+                                <i class="fas fa-project-diagram me-2 text-primary"></i>
+                                <a asp-controller="Projects" asp-action="Details" asp-route-id="@project?.Id" class="text-decoration-none">
+                                    @(project?.ProjectName ?? "Unknown Project")
+                                </a>
+                            </h5>
+                            <small class="text-muted">
+                                <i class="fas fa-file-invoice me-1"></i>@projectClaims.Count() claims
+                                <span class="mx-2">|</span>
+                                <i class="fas fa-calendar me-1"></i>
+                                From @projectClaims.Min(c => c.ClaimDate).ToString("dd/MM/yyyy")
+                                to @projectClaims.Max(c => c.ClaimDate).ToString("dd/MM/yyyy")
+                            </small>
+                        </div>
+                        <div>
+                            <span class="badge bg-success p-2">Total: @projectTotal.ToString("N0") SAR</span>
+                            <span class="badge bg-info p-2 ms-2">
+                                Avg: @(projectTotal / projectClaims.Count()) SAR
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Claims Table for this Project -->
+                <div class="table-responsive">
+                    <table class="table table-sm table-custom">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Claim Amount</th>
+                                <th>Claim Date</th>
+                                <th>Month Payment</th>
+                                <th>Approved Date</th>
+                                <th>VAT Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var claim in projectClaims.OrderByDescending(c => c.ClaimDate))
+                            {
+                                <tr data-description="@(claim.Description ?? "")"
+                                    data-amount="@claim.ClaimAmount"
+                                    data-claim-date="@claim.ClaimDate.ToString("yyyy-MM-dd")"
+                                    data-year="@claim.ClaimDate.Year"
+                                    data-month="@claim.ClaimDate.Month">
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(claim.Description))
+                                        {
+                                            <span title="@claim.Description">
+                                                @(claim.Description.Length > 40 ? claim.Description.Substring(0, 40) + "..." : claim.Description)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td class="fw-bold text-success">@claim.ClaimAmount.ToString("N0") SAR</td>
+                                    <td>@claim.ClaimDate.ToString("dd/MM/yyyy")</td>
+                                    <td>@(claim.MonthPayment ?? "-")</td>
+                                    <td>@(claim.ApprovedDate?.ToString("dd/MM/yyyy") ?? "-")</td>
+                                    <td>@(claim.VATDate?.ToString("dd/MM/yyyy") ?? "-")</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a asp-action="Edit" asp-route-id="@claim.Id" class="btn btn-warning" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                            @if (User.IsInRole("Owner") || User.IsInRole("Accountant"))
+                                            {
+                                                <a asp-action="Delete" asp-route-id="@claim.Id" class="btn btn-danger" title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-info fw-bold">
+                                <td class="text-end">Totals:</td>
+                                <td>@projectTotal.ToString("N0") SAR</td>
+                                <td colspan="5"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @if (claimsByProject.Count == 0)
+        {
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-info-circle me-2"></i>No payment claims found.
+                <a asp-action="Create" class="btn btn-link">Create your first claim</a>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal for Claims Details -->
+<div class="modal fade" id="claimsModal" tabindex="-1" aria-labelledby="claimsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                <h5 class="modal-title text-white"><i class="fas fa-file-invoice-dollar me-2"></i><span id="claimsModalTitle">Payment Claims</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalClaimsList"></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // Initialize filters
+            initializePaymentClaimsFilters();
+
+            // Initialize click handlers for cards
+            initializeClaimsCardClickHandlers();
+        });
+
+        function initializeClaimsCardClickHandlers() {
+            // Card click handlers for statistics cards
+            $('.clickable-claims-card').on('click', function() {
+                const filter = $(this).data('claims-filter');
+                let title = '';
+                let sortType = '';
+
+                switch(filter) {
+                    case 'all':
+                        title = '📊 All Payment Claims';
+                        sortType = 'all';
+                        break;
+                    case 'high-value':
+                        title = '💰 Highest Value Claims';
+                        sortType = 'high';
+                        break;
+                }
+
+                showClaimsModal(title, sortType);
+            });
+        }
+
+        function showClaimsModal(title, sortType) {
+            $('#claimsModalTitle').text(title);
+
+            let filteredClaims = $('#claimsTable tbody tr');
+
+            if (filteredClaims.length === 0) {
+                $('#modalClaimsList').html(`
+                    <div class="text-center py-5">
+                        <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">No claims found</h5>
+                    </div>
+                `);
+                $('#claimsModal').modal('show');
+                return;
+            }
+
+            // Clone claims for sorting
+            let claimsArray = [];
+            filteredClaims.each(function() {
+                claimsArray.push($(this).clone());
+            });
+
+            // Sort if needed
+            if (sortType === 'high') {
+                claimsArray.sort((a, b) => {
+                    const amountA = parseFloat(a.find('td:eq(2)').text().replace(/[^0-9.-]/g, '')) || 0;
+                    const amountB = parseFloat(b.find('td:eq(2)').text().replace(/[^0-9.-]/g, '')) || 0;
+                    return amountB - amountA;
+                });
+            }
+
+            let totalAmount = 0;
+            let claimsHtml = `
+                <div class="row">
+                    <div class="col-12 mb-4">
+                        <div class="alert alert-info">
+                            Found <strong>${filteredClaims.length}</strong> payment claim(s)
+                        </div>
+                    </div>
+                </div>
+                <div class="row claims-cards-container">
+            `;
+
+            claimsArray.forEach(function(claim) {
+                const projectName = claim.find('td:eq(0) a').text().trim();
+                const projectId = claim.data('project-id');
+                const description = claim.find('td:eq(1) span').attr('title') || claim.find('td:eq(1)').text().trim();
+                const amount = parseFloat(claim.data('amount')) || 0;
+                const claimDate = claim.find('td:eq(3)').text().trim();
+                const monthPayment = claim.find('td:eq(4)').text().trim();
+                const approvedDate = claim.find('td:eq(5)').text().trim();
+                const vatDate = claim.find('td:eq(6)').text().trim();
+                const claimId = claim.data('claim-id');
+                const editUrl = '/PaymentClaims/Edit/' + claimId;
+                const projectUrl = '/Projects/Details/' + projectId;
+
+                totalAmount += amount;
+
+                claimsHtml += `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="claims-card">
+                            <div class="claims-card-header">
+                                <div class="claims-amount-badge">
+                                    ${amount.toLocaleString()} SAR
+                                </div>
+                                <h4 class="claims-card-title">${escapeHtml(projectName)}</h4>
+                                <p class="claims-date"><i class="fas fa-calendar-alt me-1"></i>${claimDate}</p>
+                            </div>
+                            <div class="claims-card-body">
+                                <p class="claims-description">
+                                    <i class="fas fa-align-left me-2 text-muted"></i>
+                                    ${escapeHtml(description.length > 100 ? description.substring(0, 100) + '...' : description || 'No description')}
+                                </p>
+                                <div class="claims-details">
+                                    <div class="detail-item">
+                                        <span class="detail-label">Month Payment:</span>
+                                        <span class="detail-value">${monthPayment !== '-' ? monthPayment : 'Not specified'}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">Approved Date:</span>
+                                        <span class="detail-value">${approvedDate !== '-' ? approvedDate : 'Pending'}</span>
+                                    </div>
+                                    <div class="detail-item">
+                                        <span class="detail-label">VAT Date:</span>
+                                        <span class="detail-value">${vatDate !== '-' ? vatDate : 'Not processed'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="claims-card-footer">
+                                <div class="btn-group w-100" role="group">
+                                    <a href="${editUrl}" class="btn btn-sm btn-warning">
+                                        <i class="fas fa-edit me-1"></i> Edit Claim
+                                    </a>
+                                    <a href="${projectUrl}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-folder-open me-1"></i> Project Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            claimsHtml += `
+                <div class="col-12 mt-3">
+                    <div class="alert alert-success">
+                        <strong>Total Amount: ${totalAmount.toLocaleString()} SAR</strong>
+                    </div>
+                </div>
+            </div>`;
+
+            $('#modalClaimsList').html(claimsHtml);
+            $('#claimsModal').modal('show');
+        }
+
+        function initializePaymentClaimsFilters() {
+            $('#searchInput, #projectFilter, #yearFilter, #monthFilter, #amountFilter').on('keyup change', function () {
+                filterPaymentClaimsTable();
+                updateActiveFilters();
+            });
+
+            $('#clearFilters, #clearFiltersLink').click(function (e) {
+                e.preventDefault();
+                $('#searchInput').val('');
+                $('#projectFilter').val('all');
+                $('#yearFilter').val('all');
+                $('#monthFilter').val('all');
+                $('#amountFilter').val('all');
+                filterPaymentClaimsTable();
+                updateActiveFilters();
+            });
+
+            $('#viewTable').click(function () {
+                $(this).addClass('active');
+                $('#viewGrouped').removeClass('active');
+                $('#tableView').show();
+                $('#groupedView').hide();
+            });
+
+            $('#viewGrouped').click(function () {
+                $(this).addClass('active');
+                $('#viewTable').removeClass('active');
+                $('#tableView').hide();
+                $('#groupedView').show();
+            });
+        }
+
+        function filterPaymentClaimsTable() {
+            var searchTerm = $('#searchInput').val().toLowerCase();
+            var projectFilter = $('#projectFilter').val();
+            var yearFilter = $('#yearFilter').val();
+            var monthFilter = $('#monthFilter').val();
+            var amountFilter = $('#amountFilter').val();
+
+            var visibleCount = 0;
+            var rows = [];
+
+            $('#claimsTable tbody tr').each(function () {
+                var showRow = true;
+
+                var projectName = $(this).data('project-name')?.toLowerCase() || '';
+                var description = $(this).data('description')?.toLowerCase() || '';
+                var amount = parseFloat($(this).data('amount')) || 0;
+                var rowProjectId = $(this).data('project-id');
+                var rowYear = $(this).data('year');
+                var rowMonth = $(this).data('month');
+
+                if (searchTerm) {
+                    var amountStr = amount.toString();
+                    if (!projectName.includes(searchTerm) && !description.includes(searchTerm) && !amountStr.includes(searchTerm)) {
+                        showRow = false;
+                    }
+                }
+
+                if (showRow && projectFilter !== 'all' && rowProjectId != projectFilter) showRow = false;
+                if (showRow && yearFilter !== 'all' && rowYear != yearFilter) showRow = false;
+                if (showRow && monthFilter !== 'all' && rowMonth != monthFilter) showRow = false;
+
+                $(this).toggle(showRow);
+                if (showRow) {
+                    visibleCount++;
+                    rows.push($(this));
+                }
+            });
+
+            if (amountFilter === 'high') {
+                rows.sort((a, b) => parseFloat(b.data('amount')) - parseFloat(a.data('amount')));
+                $('#claimsTable tbody').empty().append(rows);
+            } else if (amountFilter === 'low') {
+                rows.sort((a, b) => parseFloat(a.data('amount')) - parseFloat(b.data('amount')));
+                $('#claimsTable tbody').empty().append(rows);
+            }
+
+            $('#resultCount').text(visibleCount + ' item' + (visibleCount !== 1 ? 's' : ''));
+            $('#noResultsMessage').toggle(visibleCount === 0);
+        }
+
+        function updateActiveFilters() {
+            var activeFilters = [];
+            var searchTerm = $('#searchInput').val();
+
+            if (searchTerm) activeFilters.push('<span class="badge bg-primary me-1">Search: ' + searchTerm + '</span>');
+            if ($('#projectFilter').val() !== 'all') activeFilters.push('<span class="badge bg-primary me-1">Project: ' + $('#projectFilter option:selected').text() + '</span>');
+            if ($('#yearFilter').val() !== 'all') activeFilters.push('<span class="badge bg-primary me-1">Year: ' + $('#yearFilter option:selected').text() + '</span>');
+            if ($('#monthFilter').val() !== 'all') activeFilters.push('<span class="badge bg-primary me-1">Month: ' + $('#monthFilter option:selected').text() + '</span>');
+            if ($('#amountFilter').val() !== 'all') activeFilters.push('<span class="badge bg-primary me-1">Sort: ' + $('#amountFilter option:selected').text() + '</span>');
+
+            if (activeFilters.length > 0) $('#activeFilters').html('<i class="fas fa-filter text-muted me-2"></i>' + activeFilters.join(''));
+            else $('#activeFilters').html('');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+    </script>
+}

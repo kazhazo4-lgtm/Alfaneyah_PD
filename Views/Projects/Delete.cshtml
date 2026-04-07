@@ -1,0 +1,118 @@
+﻿@model ProjectsDashboards.Models.Project
+
+@{
+    ViewData["Title"] = "Delete Project";
+
+    // Count related records
+    var paymentClaimsCount = Model.PaymentClaims?.Count ?? 0;
+    var variationOrdersCount = Model.VariationOrders?.Count ?? 0;
+    var hasRelatedData = paymentClaimsCount > 0 || variationOrdersCount > 0;
+}
+
+<div class="container-fluid py-4">
+    <h1 class="h3 mb-4 text-danger">Delete Project</h1>
+
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i> Are you sure you want to delete this project?
+        @if (hasRelatedData)
+        {
+            <br />
+            <span class="fw-bold mt-2 d-block">
+                This project has @paymentClaimsCount payment claim(s) and @variationOrdersCount variation order(s) that will also be deleted.
+            </span>
+        }
+        else
+        {
+            <span> This action cannot be undone.</span>
+        }
+    </div>
+
+    <div class="chart-container">
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table table-borderless">
+                    <tr>
+                        <td style="width: 40%;"><strong>Project Name:</strong></td>
+                        <td>@Model.ProjectName</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Project Location:</strong></td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(Model.ProjectLocation))
+                            {
+                                @Model.ProjectLocation
+                            }
+                            else
+                            {
+                                <span class="text-muted">Not specified</span>
+                            }
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Scope of Works:</strong></td>
+                        <td>@Model.Scope</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Contract Period:</strong></td>
+                        <td>@Model.ContractStartDate?.ToString("dd/MM/yyyy") - @Model.ContractEndDate?.ToString("dd/MM/yyyy")</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Revised End Date:</strong></td>
+                        <td>
+                            @if (Model.RevisedEndDate.HasValue)
+                            {
+                                @Model.RevisedEndDate?.ToString("dd/MM/yyyy")
+                            }
+                            else
+                            {
+                                <span class="text-muted">Not extended</span>
+                            }
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Contract Value:</strong></td>
+                        <td><span class="currency-symbol">SAR</span> @Model.ContractValue?.ToString("N0")</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Created By:</strong></td>
+                        <td>@(Model.CreatedByUser?.FullName ?? "N/A")</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Created At:</strong></td>
+                        <td>@Model.CreatedAt?.ToString("dd/MM/yyyy HH:mm")</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title text-muted mb-3">Related Data Summary</h6>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Payment Claims:</span>
+                            <span class="badge @(paymentClaimsCount > 0 ? "bg-info" : "bg-secondary") p-2">@paymentClaimsCount</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Variation Orders:</span>
+                            <span class="badge @(variationOrdersCount > 0 ? "bg-warning" : "bg-secondary") p-2">@variationOrdersCount</span>
+                        </div>
+                        <hr />
+                        <div class="d-flex justify-content-between fw-bold">
+                            <span>Total Items to Delete:</span>
+                            <span class="text-danger">@(paymentClaimsCount + variationOrdersCount + 1)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <form asp-action="Delete" class="mt-3">
+            <input type="hidden" asp-for="Id" />
+            <button type="submit" class="btn btn-danger">
+                <i class="fas fa-trash"></i> Delete Project
+            </button>
+            <a asp-action="Index" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to List
+            </a>
+        </form>
+    </div>
+</div>

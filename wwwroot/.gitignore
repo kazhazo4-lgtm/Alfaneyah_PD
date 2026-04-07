@@ -1,0 +1,29 @@
+## Ignore build outputs
+bin/
+obj/
+
+## Ignore user secrets
+**/UserSecrets/
+*.secrets.json
+
+**/secrets.json
+
+## Ignore sensitive configs
+appsettings.Development.json
+appsettings.Production.json
+
+*.user
+*.suo
+
+## Ignore IDE folders
+.vs/
+.idea/
+
+wwwroot/lib/
+
+
+
+
+
+
+

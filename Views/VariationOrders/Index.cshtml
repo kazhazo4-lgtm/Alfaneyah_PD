@@ -1,0 +1,623 @@
+﻿@model IEnumerable<ProjectsDashboards.Models.VariationOrder>
+
+@{
+    ViewData["Title"] = "Variation Orders";
+
+    // Get unique projects for filtering
+    var projects = Model?.Select(v => v.Project).Where(p => p != null).Distinct().OrderBy(p => p?.ProjectName).ToList() ?? new List<Project>();
+
+    // Group VOs by project for grouped view
+    var vosByProject = Model?.GroupBy(v => v.ProjectId)
+                               .OrderBy(g => g.First().Project?.ProjectName)
+                               .ToList() ?? new List<IGrouping<int, VariationOrder>>();
+
+    // Calculate summary statistics
+    var totalVOs = Model?.Count() ?? 0;
+    var totalAmount = Model?.Sum(v => v.VOAmount) ?? 0;
+    var averageAmount = totalVOs > 0 ? totalAmount / totalVOs : 0;
+    var positiveVOs = Model?.Count(v => v.VOAmount > 0) ?? 0;
+    var negativeVOs = Model?.Count(v => v.VOAmount < 0) ?? 0;
+    var zeroVOs = Model?.Count(v => v.VOAmount == 0) ?? 0;
+    var totalPositiveAmount = Model?.Where(v => v.VOAmount > 0).Sum(v => v.VOAmount) ?? 0;
+    var totalNegativeAmount = Math.Abs(Model?.Where(v => v.VOAmount < 0).Sum(v => v.VOAmount) ?? 0);
+
+    // Get min and max values
+    var minAmount = Model?.Min(v => v.VOAmount) ?? 0;
+    var maxAmount = Model?.Max(v => v.VOAmount) ?? 0;
+
+    // Get unique years for date filtering
+    var years = Model?.Select(v => v.ApprovedDate.Year).Distinct().OrderByDescending(y => y).ToList() ?? new List<int>();
+}
+
+<div class="container-fluid py-4">
+    <!-- Header with Title and Create Button -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i class="fas fa-exchange-alt me-2" style="color: #f59e0b;"></i>
+            Variation Orders
+        </h1>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create New VO
+        </a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Interactive Statistics Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card clickable-card" data-vo-filter="all">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon me-3" style="background: rgba(79, 70, 229, 0.1); color: #4f46e5;">
+                        <i class="fas fa-file-signature"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Total VOs</div>
+                        <div class="stat-value">@totalVOs</div>
+                    </div>
+                </div>
+                <div class="card-hover-effect">
+                    <i class="fas fa-eye"></i> Click to view all VOs
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card clickable-card" data-vo-filter="positive">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon me-3" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+                        <i class="fas fa-arrow-up"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Positive VOs</div>
+                        <div class="stat-value text-success">@positiveVOs</div>
+                        <small class="text-muted">+ @totalPositiveAmount.ToString("N0") SAR</small>
+                    </div>
+                </div>
+                <div class="card-hover-effect">
+                    <i class="fas fa-eye"></i> Click to view positive VOs
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card clickable-card" data-vo-filter="negative">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon me-3" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                        <i class="fas fa-arrow-down"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Negative VOs</div>
+                        <div class="stat-value text-danger">@negativeVOs</div>
+                        <small class="text-muted">- @totalNegativeAmount.ToString("N0") SAR</small>
+                    </div>
+                </div>
+                <div class="card-hover-effect">
+                    <i class="fas fa-eye"></i> Click to view negative VOs
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card clickable-card" data-vo-filter="zero">
+                <div class="d-flex align-items-center mb-2">
+                    <div class="stat-icon me-3" style="background: rgba(107, 114, 128, 0.1); color: #6b7280;">
+                        <i class="fas fa-minus-circle"></i>
+                    </div>
+                    <div>
+                        <div class="stat-label">Zero VOs</div>
+                        <div class="stat-value">@zeroVOs</div>
+                        <small class="text-muted">No financial impact</small>
+                    </div>
+                </div>
+                <div class="card-hover-effect">
+                    <i class="fas fa-eye"></i> Click to view zero VOs
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and View Options Card -->
+    <div class="chart-container mb-4">
+        <div class="row g-3">
+            <div class="col-md-7">
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <span class="text-muted"><i class="fas fa-filter"></i> Filter by:</span>
+
+                    <select id="projectFilter" class="form-select form-select-sm" style="width: 180px;">
+                        <option value="all">All Projects</option>
+                        @foreach (var project in projects.Where(p => p != null))
+                        {
+                            <option value="@project.Id">@project.ProjectName</option>
+                        }
+                    </select>
+
+                    <select id="voTypeFilter" class="form-select form-select-sm" style="width: 150px;">
+                        <option value="all">All Types</option>
+                        <option value="positive">Positive (+)</option>
+                        <option value="negative">Negative (-)</option>
+                        <option value="zero">Zero (0)</option>
+                    </select>
+
+                    <select id="yearFilter" class="form-select form-select-sm" style="width: 120px;">
+                        <option value="all">All Years</option>
+                        @foreach (var year in years)
+                        {
+                            <option value="@year">@year</option>
+                        }
+                    </select>
+
+                    <select id="monthFilter" class="form-select form-select-sm" style="width: 120px;">
+                        <option value="all">All Months</option>
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </select>
+
+                    <span class="ms-2 text-muted"><i class="fas fa-sort-amount-up"></i> Amount:</span>
+                    <select id="amountFilter" class="form-select form-select-sm" style="width: 150px;">
+                        <option value="all">All Amounts</option>
+                        <option value="high">Highest First</option>
+                        <option value="low">Lowest First</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-5 text-end">
+                <div class="btn-group" role="group">
+                    <button type="button" id="viewTable" class="btn btn-sm btn-outline-primary active">
+                        <i class="fas fa-table"></i> Table
+                    </button>
+                    <button type="button" id="viewGrouped" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-layer-group"></i> Group by Project
+                    </button>
+                </div>
+                <button type="button" id="clearFilters" class="btn btn-sm btn-outline-secondary ms-2">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            </div>
+        </div>
+
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="fas fa-search text-muted"></i>
+                    </span>
+                    <input type="text" id="searchInput" class="form-control border-start-0" placeholder="Search by project, scope, or amount...">
+                </div>
+            </div>
+            <div class="col-md-6 text-end">
+                <span id="resultCount" class="badge bg-info p-2">@totalVOs items</span>
+            </div>
+        </div>
+
+        <div id="activeFilters" class="mt-2" style="min-height: 30px;"></div>
+    </div>
+
+    <!-- Table View -->
+    <div id="tableView" class="chart-container">
+        <div class="table-responsive">
+            <table class="table table-custom table-hover" id="voTable">
+                <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th>Scope of Work</th>
+                        <th>VO Amount</th>
+                        <th>Approved Date</th>
+                        <th>Actions</th>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model ?? new List<VariationOrder>())
+                    {
+                        var amountClass = item.VOAmount > 0 ? "text-success" : item.VOAmount < 0 ? "text-danger" : "text-muted";
+                        var amountIcon = item.VOAmount > 0 ? "fa-arrow-up" : item.VOAmount < 0 ? "fa-arrow-down" : "fa-minus";
+                        var voType = item.VOAmount > 0 ? "positive" : item.VOAmount < 0 ? "negative" : "zero";
+
+                        <tr data-project-id="@item.ProjectId"
+                            data-project-name="@(item.Project?.ProjectName ?? "")"
+                            data-amount="@item.VOAmount"
+                            data-scope="@(item.Scope ?? "")"
+                            data-approved-date="@item.ApprovedDate.ToString("yyyy-MM-dd")"
+                            data-year="@item.ApprovedDate.Year"
+                            data-month="@item.ApprovedDate.Month"
+                            data-vo-type="@voType"
+                            data-vo-id="@item.Id">
+                            <td>
+                                <a asp-controller="Projects" asp-action="Details" asp-route-id="@item.ProjectId" class="text-decoration-none fw-bold">
+                                    <i class="fas fa-folder-open me-1 text-primary"></i>
+                                    @(item.Project?.ProjectName ?? "N/A")
+                                </a>
+                            </td>
+                            <td>
+                                <span title="@item.Scope">
+                                    @(item.Scope?.Length > 50 ? item.Scope.Substring(0, 50) + "..." : item.Scope ?? "N/A")
+                                </span>
+                            </td>
+                            <td class="fw-bold @amountClass">
+                                <i class="fas @amountIcon me-1"></i>
+                                @Math.Abs(item.VOAmount).ToString("N0") SAR
+                            </td>
+                            <td>@item.ApprovedDate.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-warning" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    @if (User.IsInRole("Owner") || User.IsInRole("Accountant"))
+                                    {
+                                        <a asp-action="Delete" asp-route-id="@item.Id" class="btn btn-danger" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                @if (Model != null && Model.Any())
+                {
+                    <tfoot>
+                        <tr class="table-info fw-bold">
+                            <td colspan="2" class="text-end">Totals:</td>
+                            <td class="@(totalAmount > 0 ? "text-success" : totalAmount < 0 ? "text-danger" : "")">
+                                @totalAmount.ToString("N0") SAR
+                            </td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+
+            @if (Model == null || !Model.Any())
+            {
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-info-circle me-2"></i>No variation orders found.
+                    <a asp-action="Create" class="btn btn-link">Create your first VO</a>
+                </div>
+            }
+
+            <div id="noResultsMessage" class="text-center text-muted py-4" style="display: none;">
+                <i class="fas fa-search me-2"></i>No variation orders match your filters.
+                <a href="#" id="clearFiltersLink">Clear filters</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grouped View -->
+    <div id="groupedView" class="chart-container" style="display: none;">
+        @foreach (var projectGroup in vosByProject)
+        {
+            var project = projectGroup.First().Project;
+            var projectVOs = projectGroup.ToList();
+            var projectTotal = projectVOs.Sum(v => v.VOAmount);
+            var projectPositive = projectVOs.Count(v => v.VOAmount > 0);
+            var projectNegative = projectVOs.Count(v => v.VOAmount < 0);
+            var projectPositiveAmount = projectVOs.Where(v => v.VOAmount > 0).Sum(v => v.VOAmount);
+            var projectNegativeAmount = Math.Abs(projectVOs.Where(v => v.VOAmount < 0).Sum(v => v.VOAmount));
+
+            <div class="project-group mb-4" data-project-id="@project?.Id">
+                <div class="project-header bg-light p-3 rounded mb-2 clickable-project" data-project-id="@project?.Id" data-project-name="@(project?.ProjectName ?? "")">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">
+                                <i class="fas fa-project-diagram me-2 text-primary"></i>
+                                <a asp-controller="Projects" asp-action="Details" asp-route-id="@project?.Id" class="text-decoration-none">
+                                    @(project?.ProjectName ?? "Unknown Project")
+                                </a>
+                            </h5>
+                            <small class="text-muted">
+                                <i class="fas fa-exchange-alt me-1"></i>@projectVOs.Count() VOs
+                                <span class="mx-2">|</span>
+                                <i class="fas fa-calendar me-1"></i>
+                                From @projectVOs.Min(v => v.ApprovedDate).ToString("dd/MM/yyyy")
+                                to @projectVOs.Max(v => v.ApprovedDate).ToString("dd/MM/yyyy")
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <div class="mb-1">
+                                <span class="badge bg-success p-2 me-1">+@projectPositive</span>
+                                <span class="badge bg-danger p-2 me-2">-@projectNegative</span>
+                                <span class="badge @(projectTotal > 0 ? "bg-success" : projectTotal < 0 ? "bg-danger" : "bg-secondary") p-2">
+                                    Total: @projectTotal.ToString("N0") SAR
+                                </span>
+                            </div>
+                            <small class="text-muted">
+                                Positive: +@projectPositiveAmount.ToString("N0") | Negative: -@projectNegativeAmount.ToString("N0")
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-custom">
+                        <thead class="table-light">
+                            <tr><th>Scope of Work</th><th>VO Amount</th><th>Approved Date</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var vo in projectVOs.OrderByDescending(v => v.ApprovedDate))
+                            {
+                                var amountClass = vo.VOAmount > 0 ? "text-success" : vo.VOAmount < 0 ? "text-danger" : "text-muted";
+                                var amountIcon = vo.VOAmount > 0 ? "fa-arrow-up" : vo.VOAmount < 0 ? "fa-arrow-down" : "fa-minus";
+                                <tr>
+                                    <td><span title="@vo.Scope">@(vo.Scope?.Length > 40 ? vo.Scope.Substring(0, 40) + "..." : vo.Scope ?? "N/A")</span></td>
+                                    <td class="fw-bold @amountClass"><i class="fas @amountIcon me-1"></i>@Math.Abs(vo.VOAmount).ToString("N0") SAR</td>
+                                    <td>@vo.ApprovedDate.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a asp-action="Edit" asp-route-id="@vo.Id" class="btn btn-warning"><i class="fas fa-edit"></i></a>
+                                            @if (User.IsInRole("Owner") || User.IsInRole("Accountant"))
+                                            {
+                                                <a asp-action="Delete" asp-route-id="@vo.Id" class="btn btn-danger"><i class="fas fa-trash"></i></a>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Modal for VO Details -->
+<div class="modal fade" id="voDetailsModal" tabindex="-1" aria-labelledby="voDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                <h5 class="modal-title text-white"><i class="fas fa-exchange-alt me-2"></i><span id="modalTitle">Variation Orders</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalVOList"></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            // Initialize variation orders page
+            initializeVariationOrdersPage();
+
+            // Initialize filters
+            initializeVariationOrdersFilters();
+        });
+
+        function initializeVariationOrdersPage() {
+            // Initialize click handlers for cards
+            $('.clickable-card').off('click').on('click', function () {
+                const filter = $(this).data('vo-filter');
+                let title = '';
+                let voType = '';
+
+                switch (filter) {
+                    case 'positive':
+                        title = '✅ Positive Variation Orders (+ Value)';
+                        voType = 'positive';
+                        break;
+                    case 'negative':
+                        title = '⚠️ Negative Variation Orders (- Value)';
+                        voType = 'negative';
+                        break;
+                    case 'zero':
+                        title = '⏸️ Zero Value Variation Orders';
+                        voType = 'zero';
+                        break;
+                    case 'all':
+                        title = '📊 All Variation Orders';
+                        voType = 'all';
+                        break;
+                }
+
+                showVOModal(title, voType);
+            });
+
+            // Initialize project header clicks for grouped view
+            $('.clickable-project').off('click').on('click', function () {
+                const projectId = $(this).data('project-id');
+                const projectName = $(this).data('project-name');
+                if (projectId) {
+                    $('#projectFilter').val(projectId).trigger('change');
+                    $('#viewTable').click();
+                    $('#searchInput').val('');
+                    filterVOsTable();
+                    updateActiveFilters();
+                    showToast(`Showing VOs for: ${projectName}`, 'info');
+                }
+            });
+        }
+
+        function showVOModal(title, voType) {
+            $('#modalTitle').text(title);
+
+            let filteredVOs = voType === 'all' ? $('#voTable tbody tr') : $(`#voTable tbody tr[data-vo-type="${voType}"]`);
+
+            if (filteredVOs.length === 0) {
+                $('#modalVOList').html(`
+                    <div class="text-center py-5">
+                        <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">No variation orders found</h5>
+                    </div>
+                `);
+                $('#voDetailsModal').modal('show');
+                return;
+            }
+
+            let totalFilteredAmount = 0;
+            filteredVOs.each(function () { totalFilteredAmount += parseFloat($(this).data('amount')) || 0; });
+
+            let vosHtml = `
+                <div class="row">
+                    <div class="col-12 mb-4">
+                        <div class="alert alert-info">
+                            Found <strong>${filteredVOs.length}</strong> variation order(s)
+                            <span class="ms-3">Total: ${totalFilteredAmount > 0 ? '+' : ''}${totalFilteredAmount.toLocaleString()} SAR</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="row vo-cards-container">
+            `;
+
+            filteredVOs.each(function () {
+                const projectName = $(this).find('td:eq(0) a').text().trim();
+                const projectId = $(this).data('project-id');
+                const scope = $(this).find('td:eq(1) span').attr('title') || $(this).find('td:eq(1)').text().trim();
+                const amount = parseFloat($(this).data('amount')) || 0;
+                const approvedDate = $(this).find('td:eq(3)').text().trim();
+                const voId = $(this).data('vo-id');
+                const editUrl = '/VariationOrders/Edit/' + voId;
+                const projectUrl = '/Projects/Details/' + projectId;
+                const amountClass = amount > 0 ? 'positive' : amount < 0 ? 'negative' : 'zero';
+                const amountIcon = amount > 0 ? 'fa-arrow-up' : amount < 0 ? 'fa-arrow-down' : 'fa-minus';
+                const amountColor = amount > 0 ? '#10b981' : amount < 0 ? '#ef4444' : '#6b7280';
+
+                vosHtml += `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="vo-card">
+                            <div class="vo-card-header">
+                                <div class="vo-amount-badge ${amountClass}">
+                                    <i class="fas ${amountIcon} me-1"></i>
+                                    ${Math.abs(amount).toLocaleString()} SAR
+                                </div>
+                                <h4 class="vo-card-title">${escapeHtml(projectName)}</h4>
+                                <p class="vo-date"><i class="fas fa-calendar-alt me-1"></i>${approvedDate}</p>
+                            </div>
+                            <div class="vo-card-body">
+                                <p class="vo-scope">${escapeHtml(scope.length > 100 ? scope.substring(0, 100) + '...' : scope)}</p>
+                                <div class="vo-impact">
+                                    <div class="impact-label">
+                                        <span>Financial Impact</span>
+                                        <span class="impact-percentage">${amount > 0 ? 'Increase' : amount < 0 ? 'Decrease' : 'Neutral'}</span>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar" style="width: ${Math.min(Math.abs(amount) / 1000000 * 100, 100)}%; background: ${amountColor};"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="vo-card-footer">
+                                <div class="btn-group w-100" role="group">
+                                    <a href="${editUrl}" class="btn btn-sm btn-warning">
+                                        <i class="fas fa-edit me-1"></i> Edit VO
+                                    </a>
+                                    <a href="${projectUrl}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-folder-open me-1"></i> Project Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            vosHtml += `</div>`;
+            $('#modalVOList').html(vosHtml);
+            $('#voDetailsModal').modal('show');
+        }
+
+        function filterVOsTable() {
+            var searchTerm = $('#searchInput').val().toLowerCase();
+            var projectFilter = $('#projectFilter').val();
+            var typeFilter = $('#voTypeFilter').val();
+            var yearFilter = $('#yearFilter').val();
+            var monthFilter = $('#monthFilter').val();
+            var amountFilter = $('#amountFilter').val();
+            var visibleCount = 0, rows = [];
+
+            $('#voTable tbody tr').each(function () {
+                var showRow = true;
+                var projectName = $(this).data('project-name')?.toLowerCase() || '';
+                var scope = $(this).data('scope')?.toLowerCase() || '';
+                var amount = parseFloat($(this).data('amount')) || 0;
+                var rowProjectId = $(this).data('project-id');
+                var rowYear = $(this).data('year');
+                var rowMonth = $(this).data('month');
+
+                if (searchTerm && !projectName.includes(searchTerm) && !scope.includes(searchTerm) && !Math.abs(amount).toString().includes(searchTerm)) showRow = false;
+                if (showRow && projectFilter !== 'all' && rowProjectId != projectFilter) showRow = false;
+                if (showRow && typeFilter !== 'all') {
+                    if (typeFilter === 'positive' && amount <= 0) showRow = false;
+                    if (typeFilter === 'negative' && amount >= 0) showRow = false;
+                    if (typeFilter === 'zero' && amount !== 0) showRow = false;
+                }
+                if (showRow && yearFilter !== 'all' && rowYear != yearFilter) showRow = false;
+                if (showRow && monthFilter !== 'all' && rowMonth != monthFilter) showRow = false;
+
+                $(this).toggle(showRow);
+                if (showRow) { visibleCount++; rows.push($(this)); }
+            });
+
+            if (amountFilter === 'high') rows.sort((a, b) => parseFloat(b.data('amount')) - parseFloat(a.data('amount')));
+            else if (amountFilter === 'low') rows.sort((a, b) => parseFloat(a.data('amount')) - parseFloat(b.data('amount')));
+            if (amountFilter !== 'all') $('#voTable tbody').empty().append(rows);
+
+            $('#resultCount').text(visibleCount + ' item' + (visibleCount !== 1 ? 's' : ''));
+            $('#noResultsMessage').toggle(visibleCount === 0);
+        }
+
+        function initializeVariationOrdersFilters() {
+            $('#searchInput, #projectFilter, #voTypeFilter, #yearFilter, #monthFilter, #amountFilter').on('keyup change', function () {
+                filterVOsTable();
+                updateActiveFilters();
+            });
+
+            $('#clearFilters, #clearFiltersLink').off('click').on('click', function (e) {
+                e.preventDefault();
+                $('#searchInput').val('');
+                $('#projectFilter').val('all');
+                $('#voTypeFilter').val('all');
+                $('#yearFilter').val('all');
+                $('#monthFilter').val('all');
+                $('#amountFilter').val('all');
+                filterVOsTable();
+                updateActiveFilters();
+            });
+
+            $('#viewTable, #viewGrouped').off('click').on('click', function () {
+                const isTable = $(this).attr('id') === 'viewTable';
+                $('#viewTable').toggleClass('active', isTable);
+                $('#viewGrouped').toggleClass('active', !isTable);
+                $('#tableView').toggle(isTable);
+                $('#groupedView').toggle(!isTable);
+            });
+        }
+
+        function updateActiveFilters() {
+            var activeFilters = [];
+            var searchTerm = $('#searchInput').val();
+
+            if (searchTerm) activeFilters.push('<span class="badge bg-primary me-1">Search: ' + searchTerm + '</span>');
+            if ($('#projectFilter').val() !== 'all') activeFilters.push('<span class="badge bg-primary me-1">Project: ' + $('#projectFilter option:selected').text() + '</span>');
+            if ($('#voTypeFilter').val() !== 'all') activeFilters.push('<span class="badge bg-primary me-1">Type: ' + $('#voTypeFilter option:selected').text() + '</span>');
+            if ($('#yearFilter').val() !== 'all') activeFilters.push('<span class="badge bg-primary me-1">Year: ' + $('#yearFilter option:selected').text() + '</span>');
+            if ($('#monthFilter').val() !== 'all') activeFilters.push('<span class="badge bg-primary me-1">Month: ' + $('#monthFilter option:selected').text() + '</span>');
+            if ($('#amountFilter').val() !== 'all') activeFilters.push('<span class="badge bg-primary me-1">Sort: ' + $('#amountFilter option:selected').text() + '</span>');
+
+            if (activeFilters.length > 0) $('#activeFilters').html('<i class="fas fa-filter text-muted me-2"></i>' + activeFilters.join(''));
+            else $('#activeFilters').html('');
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = $(`<div class="toast-notification ${type}"><i class="fas fa-${type === 'success' ? 'check-circle' : type === 'info' ? 'info-circle' : 'exclamation-triangle'} me-2"></i>${message}</div>`);
+            $('body').append(toast);
+            setTimeout(() => toast.fadeOut('slow', () => toast.remove()), 3000);
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+    </script>
+}

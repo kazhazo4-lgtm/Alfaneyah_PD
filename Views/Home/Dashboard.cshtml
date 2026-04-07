@@ -1,0 +1,1017 @@
+﻿@using ProjectsDashboards.Models
+@model DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+    var selectedProject = Model.SelectedProject;
+}
+
+<!-- Statistics Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card clickable-card" data-filter="completed">
+            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-value">@Model.CompletedProjects</div>
+            <div class="stat-label">Completed Projects</div>
+            <div class="card-hover-effect">
+                <i class="fas fa-eye"></i> Click to view
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card clickable-card" data-filter="inprogress">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                <i class="fas fa-spinner"></i>
+            </div>
+            <div class="stat-value">@Model.InProgressProjects</div>
+            <div class="stat-label">In Progress</div>
+            <div class="card-hover-effect">
+                <i class="fas fa-eye"></i> Click to view
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card clickable-card" data-filter="notstarted">
+            <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-value">@Model.NotStartedProjects</div>
+            <div class="stat-label">Not Started</div>
+            <div class="card-hover-effect">
+                <i class="fas fa-eye"></i> Click to view
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card clickable-card" data-filter="all">
+            <div class="stat-icon" style="background: rgba(79, 70, 229, 0.1); color: #4f46e5;">
+                <i class="fas fa-project-diagram"></i>
+            </div>
+            <div class="stat-value">@Model.TotalProjects</div>
+            <div class="stat-label">All Projects</div>
+            <div class="card-hover-effect">
+                <i class="fas fa-eye"></i> Click to view all
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Financial Summary Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="stat-label">Total Contract Value</span>
+                <span class="badge bg-success">Including VOs</span>
+            </div>
+            <div class="stat-value">@Model.TotalRevisedValue.ToString("N0") SAR</div>
+            <small class="text-muted">
+                <i class="fas fa-chart-line"></i>
+                Base: @Model.TotalContractValue.ToString("N0") SAR + VOs: @Model.TotalVOs.ToString("N0") SAR
+            </small>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="stat-card clickable-vo-card" data-vo-filter="all">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="stat-label">Variation Orders</span>
+                <span class="badge bg-warning">Additional</span>
+            </div>
+            <div class="stat-value @(Model.TotalVOs > 0 ? "text-success" : "")">
+                @Model.TotalVOs.ToString("N0") SAR
+            </div>
+            <div class="mt-2 pt-2 border-top">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted">Original Contract Value:</span>
+                    <span class="fw-bold">@Model.TotalContractValue.ToString("N0") SAR</span>
+                </div>
+            </div>
+            <div class="card-hover-effect">
+                <i class="fas fa-eye"></i> Click to view all Variation Orders
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="stat-card clickable-claims-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="stat-label">Total Claims</span>
+                <span class="badge bg-info">Paid</span>
+            </div>
+            <div class="stat-value">@Model.TotalClaims.ToString("N0") SAR</div>
+            <div class="mt-2 pt-2 border-top">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="text-muted">Financial Progress:</span>
+                    <span class="fw-bold" style="color: #10b981;">
+                        @(Model.TotalRevisedValue > 0 ? Math.Round((Model.TotalClaims / Model.TotalRevisedValue * 100), 2) : 0)%
+                    </span>
+                </div>
+                <div class="progress mt-2" style="height: 6px;">
+                    <div class="progress-bar bg-success"
+                         style="width: @(Model.TotalRevisedValue > 0 ? (Model.TotalClaims / Model.TotalRevisedValue * 100) : 0)%">
+                    </div>
+                </div>
+            </div>
+            <div class="card-hover-effect">
+                <i class="fas fa-eye"></i> Click to view Claims Details
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="chart-container">
+            <h5 class="chart-title">
+                <i class="fas fa-chart-pie me-2" style="color: #4f46e5;"></i>
+                Project Status Distribution
+            </h5>
+            <div style="height: 300px; position: relative;">
+                <canvas id="statusChart" style="width: 100%; height: 100%;"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="chart-container">
+            <h5 class="chart-title">
+                <i class="fas fa-chart-bar me-2" style="color: #10b981;"></i>
+                Top 5 Projects by Value
+            </h5>
+            <div style="height: 300px; width: 100%; position: relative;">
+                <canvas id="topProjectsChart" style="width: 100%; height: 100%;"></canvas>
+            </div>
+            @if (Model.TopProjectsByValue == null || !Model.TopProjectsByValue.Any())
+            {
+                <div class="text-center text-muted mt-3">
+                    <i class="fas fa-info-circle me-2"></i>No project data available
+                </div>
+            }
+            else if (Model.TopProjectsByValue.Count == 1)
+            {
+                <div class="text-center text-muted mt-2">
+                    <small>Showing the only project in the system</small>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Monthly Progress Chart -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="chart-container">
+            <h5 class="chart-title">
+                <i class="fas fa-chart-line me-2" style="color: #f59e0b;"></i>
+                Monthly Progress
+                @if (selectedProject != null)
+                {
+                    <span class="badge bg-info ms-2">@selectedProject.ProjectName</span>
+                }
+                else
+                {
+                    <span class="badge bg-secondary ms-2">All Projects</span>
+                }
+            </h5>
+            <div style="height: 350px; position: relative;">
+                <canvas id="monthlyChart" style="width: 100%; height: 100%;"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Project Summary Table -->
+<div class="chart-container mt-4">
+    <h5 class="chart-title">
+        <i class="fas fa-table me-2" style="color: #4f46e5;"></i>
+        Project Summary
+    </h5>
+
+    <div class="table-responsive">
+        <table class="table table-custom" id="projectSummaryTable">
+            <thead>
+                <tr>
+                    <th>Project</th>
+                    <th>Scope of Works</th>
+                    <th>Contract Start</th>
+                    <th>Contract End</th>
+                    <th>Revised End Date</th>
+                    <th>Duration</th>
+                    <th>Contract Value</th>
+                    <th>VOs</th>
+                    <th>Revised Contract Val</th>
+                    <th>Claims</th>
+                    <th>Work Progress</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var project in Model.AllProjects ?? new List<Project>())
+                {
+                    var statusClass = project.ProgressPercentage >= 100 ? "completed" :
+                    (project.ProgressPercentage > 0 ? "inprogress" : "notstarted");
+                    <tr data-status="@statusClass" data-project-id="@project.Id">
+                        <td>@project.ProjectName</td>
+                        <td>@(project.Scope?.Length > 30 ? project.Scope.Substring(0, 30) + "..." : project.Scope)</td>
+                        <td>@project.ContractStartDate?.ToString("dd/MM/yyyy")</td>
+                        <td>@project.ContractEndDate?.ToString("dd/MM/yyyy")</td>
+                        <td>
+                            @if (project.RevisedEndDate.HasValue)
+                            {
+                                <span class="@(project.RevisedEndDate > project.ContractEndDate ? "text-warning" : "text-success")">
+                                    @project.RevisedEndDate?.ToString("dd/MM/yyyy")
+                                    @if (project.RevisedEndDate > project.ContractEndDate)
+                                    {
+                                        <i class="fas fa-exclamation-triangle ms-1" title="Extended"></i>
+                                    }
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                        <td>@project.Duration days</td>
+                        <td>@(project.ContractValue?.ToString("N0") ?? "0") SAR</td>
+                        <td>@(project.TotalVOs?.ToString("N0") ?? "0") SAR</td>
+                        <td>@(project.RevisedContractValue?.ToString("N0") ?? "0") SAR</td>
+                        <td>@(project.TotalClaims?.ToString("N0") ?? "0") SAR</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="progress flex-grow-1 me-2" style="height: 6px; width: 80px;">
+                                    <div class="progress-bar bg-@(project.ProgressPercentage >= 100 ? "success" : "primary")"
+                                         style="width: @project.ProgressPercentage%"></div>
+                                </div>
+                                <span style="font-size: 0.85rem;">@project.ProgressPercentage?.ToString("F2")%</span>
+                            </div>
+                        </td>
+                        <td>
+                            @if (project.ProgressPercentage >= 100)
+                            {
+                                <span class="badge bg-success">Completed</span>
+                            }
+                            else if (project.ProgressPercentage > 0)
+                            {
+                                <span class="badge bg-warning">In Progress</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger">Not Started</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal for Project Details -->
+<div class="modal fade" id="projectDetailsModal" tabindex="-1" aria-labelledby="projectDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #174075 0%, #c3272c 100%);">
+                <h5 class="modal-title text-white" id="projectDetailsModalLabel">
+                    <i class="fas fa-chart-line me-2"></i>
+                    <span id="modalTitle">Project Details</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="modalProjectList"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for VO Details -->
+<div class="modal fade" id="voDetailsModal" tabindex="-1" aria-labelledby="voDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                <h5 class="modal-title text-white"><i class="fas fa-exchange-alt me-2"></i><span id="voModalTitle">Variation Orders</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalVOList"></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Claims Details -->
+<div class="modal fade" id="claimsDetailsModal" tabindex="-1" aria-labelledby="claimsDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                <h5 class="modal-title text-white"><i class="fas fa-file-invoice-dollar me-2"></i><span id="claimsModalTitle">Claims Summary</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalClaimsList"></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            if (document.getElementById('statusChart')) {
+                initializeCharts();
+            }
+
+            // Initialize click handlers for cards
+            initializeCardClickHandlers();
+
+            // Initialize VO card click handler
+            initializeVOCardClickHandler();
+
+            // Initialize Claims card click handler
+            initializeClaimsCardClickHandler();
+        });
+
+        function initializeCardClickHandlers() {
+            // Card click handlers for project status cards
+            $('.clickable-card').on('click', function() {
+                const filter = $(this).data('filter');
+                let title = '';
+                let status = '';
+
+                switch(filter) {
+                    case 'completed':
+                        title = '✅ Completed Projects';
+                        status = 'completed';
+                        break;
+                    case 'inprogress':
+                        title = '🔄 In Progress Projects';
+                        status = 'inprogress';
+                        break;
+                    case 'notstarted':
+                        title = '⏰ Not Started Projects';
+                        status = 'notstarted';
+                        break;
+                    case 'all':
+                        title = '📊 All Projects';
+                        status = 'all';
+                        break;
+                }
+
+                showProjectModal(title, status);
+            });
+        }
+
+        function initializeVOCardClickHandler() {
+            // Click handler for Variation Orders card
+            $('.clickable-vo-card').on('click', function() {
+                const filter = $(this).data('vo-filter');
+                let title = '📊 All Variation Orders';
+                let voType = 'all';
+
+                showVOModal(title, voType);
+            });
+        }
+
+        function initializeClaimsCardClickHandler() {
+            // Click handler for Total Claims card
+            $('.clickable-claims-card').on('click', function() {
+                showClaimsModal();
+            });
+        }
+
+        function showProjectModal(title, status) {
+            $('#modalTitle').text(title);
+
+            let filteredProjects = [];
+
+            if (status === 'all') {
+                filteredProjects = $('table#projectSummaryTable tbody tr');
+            } else {
+                filteredProjects = $(`table#projectSummaryTable tbody tr[data-status="${status}"]`);
+            }
+
+            if (filteredProjects.length === 0) {
+                $('#modalProjectList').html(`
+                    <div class="text-center py-5">
+                        <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">No projects found</h5>
+                        <p class="text-muted">There are no projects matching this status.</p>
+                    </div>
+                `);
+                $('#projectDetailsModal').modal('show');
+                return;
+            }
+
+            let projectsHtml = `
+                <div class="row">
+                    <div class="col-12 mb-4">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Found <strong>${filteredProjects.length}</strong> project(s) matching your selection
+                        </div>
+                    </div>
+                </div>
+                <div class="row project-cards-container">
+            `;
+
+            filteredProjects.each(function(index) {
+                const projectName = $(this).find('td:eq(0)').text();
+                const scope = $(this).find('td:eq(1)').text();
+                const contractValue = $(this).find('td:eq(6)').text();
+                const revisedValue = $(this).find('td:eq(8)').text();
+                const claims = $(this).find('td:eq(9)').text();
+                const progressText = $(this).find('td:eq(10)').text().trim();
+                const statusBadge = $(this).find('td:eq(11)').html();
+                const projectId = $(this).data('project-id');
+
+                const progressMatch = progressText.match(/(\d+\.?\d*)%/);
+                const progress = progressMatch ? parseFloat(progressMatch[1]) : 0;
+
+                let progressColor = '#10b981';
+                if (progress < 30) progressColor = '#ef4444';
+                else if (progress < 70) progressColor = '#f59e0b';
+                else progressColor = '#10b981';
+
+                projectsHtml += `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="project-card" onclick="window.location.href='/Projects/Details/${projectId}'">
+                            <div class="project-card-header">
+                                <div class="project-status-badge">${statusBadge}</div>
+                                <h4 class="project-card-title">${escapeHtml(projectName)}</h4>
+                            </div>
+                            <div class="project-card-body">
+                                <p class="project-scope">
+                                    <i class="fas fa-align-left me-2 text-muted"></i>
+                                    ${escapeHtml(scope.length > 80 ? scope.substring(0, 80) + '...' : scope)}
+                                </p>
+                                <div class="project-metrics">
+                                    <div class="metric-item">
+                                        <span class="metric-label">Contract Value</span>
+                                        <span class="metric-value">${contractValue}</span>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">Revised Value</span>
+                                        <span class="metric-value text-success">${revisedValue}</span>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">Claims Paid</span>
+                                        <span class="metric-value text-info">${claims}</span>
+                                    </div>
+                                </div>
+                                <div class="progress-container">
+                                    <div class="progress-label">
+                                        <span>Progress</span>
+                                        <span class="progress-percentage">${progress}%</span>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar" style="width: ${progress}%; background: ${progressColor};"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="project-card-footer">
+                                <span class="view-details">
+                                    Click to view details <i class="fas fa-arrow-right ms-1"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            projectsHtml += `</div>`;
+            $('#modalProjectList').html(projectsHtml);
+            $('#projectDetailsModal').modal('show');
+        }
+
+        function showVOModal(title, voType) {
+            $('#voModalTitle').text(title);
+
+            // Collect all VOs from projects
+            let allVOs = [];
+
+            @foreach (var project in Model.AllProjects ?? new List<Project>())
+            {
+                        foreach (var vo in project.VariationOrders ?? new List<VariationOrder>())
+                        {
+                                    <text>
+                                    allVOs.push({
+                                        id: @vo.Id,
+                                        projectId: @project.Id,
+                                        projectName: '@(project.ProjectName?.Replace("'", "\\'") ?? "")',
+                                        scope: '@(vo.Scope?.Replace("'", "\\'") ?? "")',
+                                        amount: @vo.VOAmount,
+                                        approvedDate: '@vo.ApprovedDate.ToString("dd/MM/yyyy")',
+                                        voType: '@(vo.VOAmount > 0 ? "positive" : vo.VOAmount < 0 ? "negative" : "zero")'
+                                    });
+                                    </text>
+                        }
+            }
+
+            let filteredVOs = voType === 'all' ? allVOs : allVOs.filter(vo => vo.voType === voType);
+
+            if (filteredVOs.length === 0) {
+                $('#modalVOList').html(`
+                    <div class="text-center py-5">
+                        <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">No variation orders found</h5>
+                    </div>
+                `);
+                $('#voDetailsModal').modal('show');
+                return;
+            }
+
+            let totalFilteredAmount = filteredVOs.reduce((sum, vo) => sum + vo.amount, 0);
+
+            let vosHtml = `
+                <div class="row">
+                    <div class="col-12 mb-4">
+                        <div class="alert alert-info">
+                            Found <strong>${filteredVOs.length}</strong> variation order(s)
+                            <span class="ms-3">Total: ${totalFilteredAmount > 0 ? '+' : ''}${totalFilteredAmount.toLocaleString()} SAR</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="row vo-cards-container">
+            `;
+
+            filteredVOs.forEach(function(vo) {
+                const amountClass = vo.amount > 0 ? 'positive' : vo.amount < 0 ? 'negative' : 'zero';
+                const amountIcon = vo.amount > 0 ? 'fa-arrow-up' : vo.amount < 0 ? 'fa-arrow-down' : 'fa-minus';
+                const amountColor = vo.amount > 0 ? '#10b981' : vo.amount < 0 ? '#ef4444' : '#6b7280';
+                const editUrl = '/VariationOrders/Edit/' + vo.id;
+                const projectUrl = '/Projects/Details/' + vo.projectId;
+
+                vosHtml += `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="vo-card">
+                            <div class="vo-card-header">
+                                <div class="vo-amount-badge ${amountClass}">
+                                    <i class="fas ${amountIcon} me-1"></i>
+                                    ${Math.abs(vo.amount).toLocaleString()} SAR
+                                </div>
+                                <h4 class="vo-card-title">${escapeHtml(vo.projectName)}</h4>
+                                <p class="vo-date"><i class="fas fa-calendar-alt me-1"></i>${vo.approvedDate}</p>
+                            </div>
+                            <div class="vo-card-body">
+                                <p class="vo-scope">${escapeHtml(vo.scope.length > 100 ? vo.scope.substring(0, 100) + '...' : vo.scope)}</p>
+                                <div class="vo-impact">
+                                    <div class="impact-label">
+                                        <span>Financial Impact</span>
+                                        <span class="impact-percentage">${vo.amount > 0 ? 'Increase' : vo.amount < 0 ? 'Decrease' : 'Neutral'}</span>
+                                    </div>
+                                    <div class="progress" style="height: 8px;">
+                                        <div class="progress-bar" style="width: ${Math.min(Math.abs(vo.amount) / 1000000 * 100, 100)}%; background: ${amountColor};"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="vo-card-footer">
+                                <div class="btn-group w-100" role="group">
+                                    <a href="${editUrl}" class="btn btn-sm btn-warning">
+                                        <i class="fas fa-edit me-1"></i> Edit VO
+                                    </a>
+                                    <a href="${projectUrl}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-folder-open me-1"></i> Project Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            vosHtml += `</div>`;
+            $('#modalVOList').html(vosHtml);
+            $('#voDetailsModal').modal('show');
+        }
+
+        function showClaimsModal() {
+            $('#claimsModalTitle').text('Claims Summary by Project');
+
+            // Collect claims data from projects
+            let claimsData = [];
+
+            @foreach (var project in Model.AllProjects ?? new List<Project>())
+            {
+                        var revisedValue = (project.RevisedContractValue ?? project.ContractValue ?? 0);
+                        var totalClaims = project.TotalClaims ?? 0;
+                        var remainingAmount = revisedValue - totalClaims;
+                        var claimsPercentage = revisedValue > 0 ? (totalClaims / revisedValue * 100) : 0;
+
+                        <text>
+                        claimsData.push({
+                            id: @project.Id,
+                            name: '@(project.ProjectName?.Replace("'", "\\'") ?? "")',
+                            revisedValue: @revisedValue,
+                            totalClaims: @totalClaims,
+                            remainingAmount: @remainingAmount,
+                            claimsPercentage: @claimsPercentage,
+                            contractValue: @(project.ContractValue ?? 0),
+                            totalVOs: @(project.TotalVOs ?? 0)
+                        });
+                        </text>
+            }
+
+            // Sort by claims percentage (highest first)
+            claimsData.sort((a, b) => b.claimsPercentage - a.claimsPercentage);
+
+            if (claimsData.length === 0) {
+                $('#modalClaimsList').html(`
+                    <div class="text-center py-5">
+                        <i class="fas fa-folder-open fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">No claims data found</h5>
+                    </div>
+                `);
+                $('#claimsDetailsModal').modal('show');
+                return;
+            }
+
+            let totalRevisedValue = claimsData.reduce((sum, p) => sum + p.revisedValue, 0);
+            let totalClaimsSum = claimsData.reduce((sum, p) => sum + p.totalClaims, 0);
+            let totalRemaining = totalRevisedValue - totalClaimsSum;
+            let overallPercentage = totalRevisedValue > 0 ? (totalClaimsSum / totalRevisedValue * 100) : 0;
+
+            let claimsHtml = `
+                <div class="row">
+                    <div class="col-12 mb-4">
+                        <div class="alert alert-success">
+                            <i class="fas fa-chart-line me-2"></i>
+                            <strong>Overall Financial Progress:</strong> ${overallPercentage.toFixed(2)}% (${totalClaimsSum.toLocaleString()} SAR claimed out of ${totalRevisedValue.toLocaleString()} SAR)
+                            <div class="progress mt-2" style="height: 10px;">
+                                <div class="progress-bar bg-success" style="width: ${overallPercentage}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row claims-cards-container">
+            `;
+
+            claimsData.forEach(function(project) {
+                const progressColor = project.claimsPercentage >= 100 ? '#10b981' :
+                                     project.claimsPercentage >= 50 ? '#f59e0b' : '#ef4444';
+                const statusText = project.claimsPercentage >= 100 ? 'Fully Claimed' :
+                                  project.claimsPercentage >= 75 ? 'Near Complete' :
+                                  project.claimsPercentage >= 50 ? 'Partial' :
+                                  project.claimsPercentage >= 25 ? 'Started' : 'Low';
+
+                claimsHtml += `
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="claims-card" onclick="window.location.href='/Projects/Details/${project.id}'">
+                            <div class="claims-card-header">
+                                <h4 class="claims-card-title">${escapeHtml(project.name)}</h4>
+                                <div class="claims-status-badge ${project.claimsPercentage >= 100 ? 'completed' : 'inprogress'}">
+                                    ${statusText}
+                                </div>
+                            </div>
+                            <div class="claims-card-body">
+                                <div class="claims-metrics">
+                                    <div class="claims-metric">
+                                        <span class="claims-metric-label">Revised Contract Value</span>
+                                        <span class="claims-metric-value">${project.revisedValue.toLocaleString()} SAR</span>
+                                        <small class="text-muted d-block">
+                                            Base: ${project.contractValue.toLocaleString()} SAR
+                                            ${project.totalVOs > 0 ? `+ VOs: ${project.totalVOs.toLocaleString()} SAR` : ''}
+                                        </small>
+                                    </div>
+                                    <div class="claims-metric">
+                                        <span class="claims-metric-label">Total Claims Paid</span>
+                                        <span class="claims-metric-value text-success">${project.totalClaims.toLocaleString()} SAR</span>
+                                    </div>
+                                    <div class="claims-metric">
+                                        <span class="claims-metric-label">Remaining Amount</span>
+                                        <span class="claims-metric-value ${project.remainingAmount > 0 ? 'text-warning' : 'text-muted'}">
+                                            ${project.remainingAmount > 0 ? project.remainingAmount.toLocaleString() : '0'} SAR
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="claims-progress">
+                                    <div class="claims-progress-label">
+                                        <span>Claims Progress</span>
+                                        <span class="claims-progress-percentage">${project.claimsPercentage.toFixed(2)}%</span>
+                                    </div>
+                                    <div class="progress" style="height: 10px;">
+                                        <div class="progress-bar" style="width: ${project.claimsPercentage}%; background: ${progressColor};"></div>
+                                    </div>
+                                    <div class="claims-progress-details mt-2">
+                                        <small class="text-muted">
+                                            <i class="fas fa-chart-line me-1"></i>
+                                            ${project.remainingAmount > 0 ?
+                                                `Remaining: ${project.remainingAmount.toLocaleString()} SAR to claim` :
+                                                'All claims processed'}
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="claims-card-footer">
+                                <span class="view-details">
+                                    Click to view project details <i class="fas fa-arrow-right ms-1"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            claimsHtml += `</div>`;
+            $('#modalClaimsList').html(claimsHtml);
+            $('#claimsDetailsModal').modal('show');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function initializeCharts() {
+            // ===== PROJECT STATUS CHART (PIE) =====
+            var ctx1 = document.getElementById('statusChart').getContext('2d');
+
+            var statusLabels = [];
+            var statusData = [];
+            var statusColors = [];
+
+        @if (Model.ProjectStatusData != null && Model.ProjectStatusData.Any())
+        {
+                                foreach (var item in Model.ProjectStatusData)
+                                {
+                                                        <text>
+                                                            statusLabels.push('@item.Label');
+                                                            statusData.push(@item.Value);
+                                                            statusColors.push('@item.Color');
+                                                        </text>
+                                }
+        }
+        else
+        {
+                                <text>
+                                    statusLabels = ['Completed', 'In Progress', 'Not Started'];
+                                    statusData = [0, 0, 0];
+                                    statusColors = ['#28a745', '#ffc107', '#dc3545'];
+                                </text>
+        }
+
+            const statusChart = new Chart(ctx1, {
+                type: 'pie',
+                data: {
+                    labels: statusLabels,
+                    datasets: [{
+                        data: statusData,
+                        backgroundColor: statusColors,
+                        borderWidth: 0,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: { size: 12 },
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    let label = context.label || '';
+                                    let value = context.raw || 0;
+                                    let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    let percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${label}: ${value} projects (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    onClick: function(event, elements) {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const label = statusLabels[index];
+                            let filter = '';
+
+                            if (label === 'Completed') filter = 'completed';
+                            else if (label === 'In Progress') filter = 'inprogress';
+                            else if (label === 'Not Started') filter = 'notstarted';
+
+                            if (filter) {
+                                showProjectModal(`${label} Projects`, filter);
+                            }
+                        }
+                    }
+                }
+            });
+
+            // ===== TOP PROJECTS CHART (BAR) =====
+            var ctx2 = document.getElementById('topProjectsChart').getContext('2d');
+
+            var projectLabels = [];
+            var projectData = [];
+            var projectColors = [];
+
+        @if (Model.TopProjectsByValue != null && Model.TopProjectsByValue.Any())
+        {
+                                foreach (var item in Model.TopProjectsByValue)
+                                {
+                                                        var displayName = item.Label;
+                                                        if (displayName != null && displayName.Length > 15)
+                                                        {
+                                                                                displayName = displayName.Substring(0, 12) + "...";
+                                                        }
+                                                        <text>
+                                                            projectLabels.push('@displayName');
+                                                            projectData.push(@item.Value);
+                                                            projectColors.push('@item.Color');
+                                                        </text>
+                                }
+        }
+        else
+        {
+                                <text>
+                                    projectLabels = ['No Projects'];
+                                    projectData = [0];
+                                    projectColors = ['#6c757d'];
+                                </text>
+        }
+
+            var barPercentage = projectLabels.length > 3 ? 0.5 : 0.7;
+            var categoryPercentage = projectLabels.length > 3 ? 0.7 : 0.9;
+
+            new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: projectLabels,
+                    datasets: [{
+                        label: 'Project Value (SAR)',
+                        data: projectData,
+                        backgroundColor: projectColors,
+                        borderRadius: 6,
+                        barPercentage: barPercentage,
+                        categoryPercentage: categoryPercentage
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: function(event, elements) {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const projectName = projectLabels[index];
+                            const projectRow = $('table#projectSummaryTable tbody tr').filter(function() {
+                                return $(this).find('td:eq(0)').text().includes(projectName);
+                            }).first();
+
+                            if (projectRow.length) {
+                                const projectId = projectRow.data('project-id');
+                                window.location.href = `/Projects/Details/${projectId}`;
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    let value = context.raw || 0;
+                                    if (value >= 1000000) {
+                                        return 'Value: SAR' + (value / 1000000).toFixed(2) + 'M';
+                                    } else if (value >= 1000) {
+                                        return 'Value: SAR' + (value / 1000000).toFixed(2) + 'M';
+                                    }
+                                    return 'Value: SAR' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    if (value >= 1000000) {
+                                        return 'SAR' + (value / 1000000).toFixed(1) + 'M';
+                                    } else if (value >= 1000) {
+                                        return 'SAR' + (value / 1000).toFixed(1) + 'K';
+                                    }
+                                    return 'SAR' + value;
+                                },
+                                maxTicksLimit: 5
+                            },
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                maxRotation: 30,
+                                minRotation: 30,
+                                font: { size: 10 },
+                                autoSkip: true,
+                                maxTicksLimit: 6
+                            }
+                        }
+                    }
+                }
+            });
+
+            // ===== MONTHLY PROGRESS CHART (LINE) =====
+            var ctx3 = document.getElementById('monthlyChart').getContext('2d');
+
+            var monthlyLabels = [];
+            var claimsData = [];
+            var vosData = [];
+
+        @if (Model.MonthlyProgress != null && Model.MonthlyProgress.Any())
+        {
+                                foreach (var item in Model.MonthlyProgress)
+                                {
+                                                        <text>
+                                                            monthlyLabels.push('@item.Month');
+                                                            claimsData.push(@item.Claims);
+                                                            vosData.push(@item.VOs);
+                                                        </text>
+                                }
+        }
+        else
+        {
+                                <text>
+                                    monthlyLabels = ['No Data'];
+                                    claimsData = [0];
+                                    vosData = [0];
+                                </text>
+        }
+
+            new Chart(ctx3, {
+                type: 'line',
+                data: {
+                    labels: monthlyLabels,
+                    datasets: [
+                        {
+                            label: 'Payment Claims',
+                            data: claimsData,
+                            borderColor: '#4f46e5',
+                            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        {
+                            label: 'Variation Orders',
+                            data: vosData,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    let label = context.dataset.label || '';
+                                    let value = context.raw || 0;
+                                    if (value >= 1000000) {
+                                        return label + ': SAR' + (value / 1000000).toFixed(2) + 'M';
+                                    } else if (value >= 1000) {
+                                        return label + ': SAR' + (value / 1000).toFixed(2) + 'K';
+                                    }
+                                    return label + ': SAR' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    if (value >= 1000000) {
+                                        return 'SAR' + (value / 1000000).toFixed(1) + 'M';
+                                    } else if (value >= 1000) {
+                                        return 'SAR' + (value / 1000).toFixed(1) + 'K';
+                                    }
+                                    return 'SAR' + value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+}

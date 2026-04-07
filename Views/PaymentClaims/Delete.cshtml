@@ -1,0 +1,63 @@
+﻿@model ProjectsDashboards.Models.PaymentClaim
+
+@{
+    ViewData["Title"] = "Delete Payment Claim";
+}
+
+<div class="container-fluid py-4">
+    <h1 class="h3 mb-4 text-danger">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        Delete Payment Claim
+    </h1>
+
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i> Are you sure you want to delete this payment claim?
+    </div>
+
+    <div class="chart-container">
+        <div class="row">
+            <div class="col-md-6">
+                <table class="table table-borderless">
+                    <tr>
+                        <td style="width: 40%;"><strong>Project:</strong></td>
+                        <td>@(Model.Project?.ProjectName ?? "N/A")</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Claim Amount:</strong></td>
+                        <td class="fw-bold text-success">@Model.ClaimAmount.ToString("N0") SAR</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Claim Date:</strong></td>
+                        <td>@Model.ClaimDate.ToString("dd/MM/yyyy")</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Month Payment:</strong></td>
+                        <td>@(Model.MonthPayment ?? "N/A")</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Approved Date:</strong></td>
+                        <td>@(Model.ApprovedDate?.ToString("dd/MM/yyyy") ?? "N/A")</td>
+                    </tr>
+                    <tr>
+                        <td><strong>VAT Date:</strong></td>
+                        <td>@(Model.VATDate?.ToString("dd/MM/yyyy") ?? "N/A")</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Description:</strong></td>
+                        <td>@(Model.Description ?? "N/A")</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <form asp-action="Delete" class="mt-3">
+            <input type="hidden" asp-for="Id" />
+            <button type="submit" class="btn btn-danger">
+                <i class="fas fa-trash"></i> Delete
+            </button>
+            <a asp-action="Index" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to List
+            </a>
+        </form>
+    </div>
+</div>
