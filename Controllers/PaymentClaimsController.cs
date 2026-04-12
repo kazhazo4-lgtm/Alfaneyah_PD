@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProjectsDashboards.Models;
+using ProjectsDashboards.Helpers;  // ← ADD THIS
 
 namespace ProjectsDashboards.Controllers
 {
@@ -9,10 +10,12 @@ namespace ProjectsDashboards.Controllers
     public class PaymentClaimsController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly EncryptionHelper _encryption;  // ← ADD THIS
 
-        public PaymentClaimsController(ApplicationDbContext context)
+        public PaymentClaimsController(ApplicationDbContext context, EncryptionHelper encryption)  // ← UPDATE CONSTRUCTOR
         {
             _context = context;
+            _encryption = encryption;  // ← ADD THIS
         }
 
         // GET: PaymentClaims
@@ -21,6 +24,16 @@ namespace ProjectsDashboards.Controllers
             var paymentClaims = await _context.Set<PaymentClaim>()
                 .Include(p => p.Project)
                 .ToListAsync();
+
+            // Decrypt Claim Amounts for display
+            foreach (var claim in paymentClaims)
+            {
+                if (!string.IsNullOrEmpty(claim.EncryptedClaimAmount))
+                {
+                    claim.ClaimAmount = _encryption.DecryptPrice(claim.EncryptedClaimAmount);
+                }
+            }
+
             return View(paymentClaims);
         }
 
@@ -38,6 +51,9 @@ namespace ProjectsDashboards.Controllers
         {
             if (ModelState.IsValid)
             {
+                // Encrypt the Claim Amount before saving
+                paymentClaim.EncryptedClaimAmount = _encryption.EncryptPrice(paymentClaim.ClaimAmount);
+
                 _context.Set<PaymentClaim>().Add(paymentClaim);
                 await _context.SaveChangesAsync();
                 TempData["Success"] = "Payment claim added successfully!";
@@ -64,6 +80,12 @@ namespace ProjectsDashboards.Controllers
                 return NotFound();
             }
 
+            // Decrypt Claim Amount for display in edit form
+            if (!string.IsNullOrEmpty(paymentClaim.EncryptedClaimAmount))
+            {
+                paymentClaim.ClaimAmount = _encryption.DecryptPrice(paymentClaim.EncryptedClaimAmount);
+            }
+
             ViewBag.Projects = _context.Projects.ToList();
             return View(paymentClaim);
         }
@@ -82,7 +104,24 @@ namespace ProjectsDashboards.Controllers
             {
                 try
                 {
-                    _context.Set<PaymentClaim>().Update(paymentClaim);
+                    var existingClaim = await _context.Set<PaymentClaim>().FindAsync(id);
+                    if (existingClaim == null)
+                    {
+                        return NotFound();
+                    }
+
+                    // Update non-encrypted fields
+                    existingClaim.ProjectId = paymentClaim.ProjectId;
+                    existingClaim.ClaimDate = paymentClaim.ClaimDate;
+                    existingClaim.Description = paymentClaim.Description;
+                    existingClaim.MonthPayment = paymentClaim.MonthPayment;
+                    existingClaim.ApprovedDate = paymentClaim.ApprovedDate;
+                    existingClaim.VATDate = paymentClaim.VATDate;
+
+                    // Encrypt and update Claim Amount
+                    existingClaim.EncryptedClaimAmount = _encryption.EncryptPrice(paymentClaim.ClaimAmount);
+
+                    _context.Set<PaymentClaim>().Update(existingClaim);
                     await _context.SaveChangesAsync();
                     TempData["Success"] = "Payment claim updated successfully!";
                 }
@@ -119,6 +158,12 @@ namespace ProjectsDashboards.Controllers
             if (paymentClaim == null)
             {
                 return NotFound();
+            }
+
+            // Decrypt Claim Amount for display
+            if (!string.IsNullOrEmpty(paymentClaim.EncryptedClaimAmount))
+            {
+                paymentClaim.ClaimAmount = _encryption.DecryptPrice(paymentClaim.EncryptedClaimAmount);
             }
 
             return View(paymentClaim);

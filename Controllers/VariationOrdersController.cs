@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProjectsDashboards.Models;
+using ProjectsDashboards.Helpers;
 
 namespace ProjectsDashboards.Controllers
 {
@@ -9,10 +10,12 @@ namespace ProjectsDashboards.Controllers
     public class VariationOrdersController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly EncryptionHelper _encryption;
 
-        public VariationOrdersController(ApplicationDbContext context)
+        public VariationOrdersController(ApplicationDbContext context, EncryptionHelper encryption)
         {
             _context = context;
+            _encryption = encryption;
         }
 
         // GET: VariationOrders
@@ -21,6 +24,16 @@ namespace ProjectsDashboards.Controllers
             var variationOrders = await _context.VariationOrders
                 .Include(v => v.Project)
                 .ToListAsync();
+
+            // Decrypt VO Amounts for display
+            foreach (var vo in variationOrders)
+            {
+                if (!string.IsNullOrEmpty(vo.EncryptedVOAmount))
+                {
+                    vo.VOAmount = _encryption.DecryptPrice(vo.EncryptedVOAmount);
+                }
+            }
+
             return View(variationOrders);
         }
 
@@ -46,6 +59,9 @@ namespace ProjectsDashboards.Controllers
             {
                 try
                 {
+                    // Encrypt the VO Amount before saving
+                    variationOrder.EncryptedVOAmount = _encryption.EncryptPrice(variationOrder.VOAmount);
+
                     _context.Add(variationOrder);
                     await _context.SaveChangesAsync();
                     TempData["Success"] = "Variation order added successfully!";
@@ -75,6 +91,13 @@ namespace ProjectsDashboards.Controllers
             {
                 return NotFound();
             }
+
+            // Decrypt VO Amount for display in edit form
+            if (!string.IsNullOrEmpty(variationOrder.EncryptedVOAmount))
+            {
+                variationOrder.VOAmount = _encryption.DecryptPrice(variationOrder.EncryptedVOAmount);
+            }
+
             ViewBag.Projects = _context.Projects.ToList();
             return View(variationOrder);
         }
@@ -84,6 +107,7 @@ namespace ProjectsDashboards.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("Id,ProjectId,VOAmount,ApprovedDate,Scope")] VariationOrder variationOrder)
         {
+            // Check if IDs match
             if (id != variationOrder.Id)
             {
                 return NotFound();
@@ -95,32 +119,55 @@ namespace ProjectsDashboards.Controllers
                 ModelState.Remove("Project");
             }
 
-            if (ModelState.IsValid)
+            // Check if model is valid
+            if (!ModelState.IsValid)
             {
-                try
-                {
-                    _context.Update(variationOrder);
-                    await _context.SaveChangesAsync();
-                    TempData["Success"] = "Variation order updated successfully!";
-                    return RedirectToAction(nameof(Index));
-                }
-                catch (DbUpdateConcurrencyException)
-                {
-                    if (!VariationOrderExists(variationOrder.Id))
-                    {
-                        return NotFound();
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ModelState.AddModelError("", "Unable to save changes. " + ex.Message);
-                }
+                // If invalid, redisplay the form with errors
+                ViewBag.Projects = _context.Projects.ToList();
+                return View(variationOrder);
             }
 
+            try
+            {
+                // Get the existing entity from database
+                var existingVO = await _context.VariationOrders.FindAsync(id);
+                if (existingVO == null)
+                {
+                    return NotFound();
+                }
+
+                // Update non-encrypted fields
+                existingVO.ProjectId = variationOrder.ProjectId;
+                existingVO.ApprovedDate = variationOrder.ApprovedDate;
+                existingVO.Scope = variationOrder.Scope;
+
+                // Encrypt and update VO Amount
+                existingVO.EncryptedVOAmount = _encryption.EncryptPrice(variationOrder.VOAmount);
+
+                // Mark as modified and save
+                _context.Update(existingVO);
+                await _context.SaveChangesAsync();
+
+                TempData["Success"] = "Variation order updated successfully!";
+                return RedirectToAction(nameof(Index));
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!VariationOrderExists(variationOrder.Id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    ModelState.AddModelError("", "A concurrency error occurred. Please try again.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", "Unable to save changes. " + ex.Message);
+            }
+
+            // If we got this far, something failed, redisplay form
             ViewBag.Projects = _context.Projects.ToList();
             return View(variationOrder);
         }
@@ -140,6 +187,12 @@ namespace ProjectsDashboards.Controllers
             if (variationOrder == null)
             {
                 return NotFound();
+            }
+
+            // Decrypt VO Amount for display
+            if (!string.IsNullOrEmpty(variationOrder.EncryptedVOAmount))
+            {
+                variationOrder.VOAmount = _encryption.DecryptPrice(variationOrder.EncryptedVOAmount);
             }
 
             return View(variationOrder);

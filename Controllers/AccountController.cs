@@ -24,8 +24,11 @@ namespace ProjectsDashboards.Controllers
         [HttpPost]
         public async Task<IActionResult> Login(string username, string password)
         {
+            // Hash the entered password using SHA256 (same method as when creating user)
+            var hashedPassword = HashPassword(password);
+
             var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.FullName == username && u.PasswordHash == password);
+                .FirstOrDefaultAsync(u => u.FullName == username && u.PasswordHash == hashedPassword);
 
             if (user != null)
             {
@@ -67,8 +70,17 @@ namespace ProjectsDashboards.Controllers
                 }
             }
 
-            ViewBag.Error = "Invalid email or password";
+            ViewBag.Error = "Invalid username or password";
             return View();
+        }
+
+        private string HashPassword(string password)
+        {
+            using (var sha256 = System.Security.Cryptography.SHA256.Create())
+            {
+                var hashedBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+                return Convert.ToBase64String(hashedBytes);
+            }
         }
 
         public async Task<IActionResult> Logout()

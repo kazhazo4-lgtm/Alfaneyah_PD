@@ -47,6 +47,16 @@
                     </li>
                 }
 
+                @if (User.Identity.IsAuthenticated && User.IsInRole("Owner"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Users" asp-action="Index">
+                            <i class="bi bi-people-fill"></i>
+                            <span>Manage Users</span>
+                        </a>
+                    </li>
+                }
+
                 @if (User.IsInRole("Owner") || User.IsInRole("Staff"))
                 {
                     <li class="nav-item">

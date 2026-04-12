@@ -303,3 +303,4 @@ D:\Laptop Drive E\Digital Ocean\ProjectsManagement\ProjectsDashboards\obj\Debug\
 D:\Laptop Drive E\Digital Ocean\ProjectsManagement\ProjectsDashboards\obj\Debug\net8.0\AlfaneyahProjectsDashboard.pdb
 D:\Laptop Drive E\Digital Ocean\ProjectsManagement\ProjectsDashboards\obj\Debug\net8.0\AlfaneyahProjectsDashboard.genruntimeconfig.cache
 D:\Laptop Drive E\Digital Ocean\ProjectsManagement\ProjectsDashboards\obj\Debug\net8.0\ref\AlfaneyahProjectsDashboard.dll
+D:\Laptop Drive E\ProjectsManagement\ProjectsDashboards\obj\Debug\net8.0\AlfaneyahProjectsDashboard.sourcelink.json

@@ -1,10 +1,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using ProjectsDashboards.Helpers;
 using ProjectsDashboards.Models;
 
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-var url = $"http://0.0.0.0:{port}";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,7 +12,7 @@ if (builder.Environment.IsDevelopment())
     builder.Configuration.AddUserSecrets<Program>();
 }
 
-builder.WebHost.UseUrls(url);
+//builder.WebHost.UseUrls(url);
 
 // This ensures correct config based on environment
 builder.Configuration
@@ -23,6 +22,10 @@ builder.Configuration
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// Add Data Protection for encryption
+builder.Services.AddDataProtection();
+builder.Services.AddScoped<EncryptionHelper>();
 
 // Add DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -99,7 +102,7 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-// Ensure database is created and seeded
+//Ensure database is created and seeded
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

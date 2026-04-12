@@ -31,10 +31,20 @@ namespace ProjectsDashboards.Models
         [DataType(DataType.Date)]
         public DateTime? ContractEndDate { get; set; }
 
-        [Column(TypeName = "decimal(18, 2)")]
+        // ENCRYPTED: Database stores encrypted value
+        [Display(Name = "Contract Value")]
+        public string? EncryptedContractValue { get; set; }
+
+        // For display/editing (not stored in database)
+        [NotMapped]
         [Display(Name = "Contract Value")]
         [DisplayFormat(DataFormatString = "{0:N0}", ApplyFormatInEditMode = true)]
-        public decimal? ContractValue { get; set; }
+        public decimal? ContractValue
+        {
+            get => _contractValue;
+            set => _contractValue = value;
+        }
+        private decimal? _contractValue;
 
         [ForeignKey("CreatedByUser")]
         public int? CreatedBy { get; set; }

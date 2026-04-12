@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AlfaneyahProjectsDashboard")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4360d6b418375d057ab0a81e317f426e1dedba0e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9c7a97c5a44e18578b32dc08cc9b38bc0789236a")]
 [assembly: System.Reflection.AssemblyProductAttribute("AlfaneyahProjectsDashboard")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AlfaneyahProjectsDashboard")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

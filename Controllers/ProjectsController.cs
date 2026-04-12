@@ -3,21 +3,22 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using ProjectsDashboards.Models;
+using ProjectsDashboards.Helpers;
 
 namespace ProjectsDashboards.Controllers
 {
-
     [Authorize]
     public class ProjectsController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly EncryptionHelper _encryption;  // ← ADD THIS
 
-        public ProjectsController(ApplicationDbContext context)
+        public ProjectsController(ApplicationDbContext context, EncryptionHelper encryption)  // ← UPDATE CONSTRUCTOR
         {
             _context = context;
+            _encryption = encryption;
         }
 
-        // GET: Projects (Accessible by Owner and Staff)
         [Authorize(Roles = "Owner,Staff,Accountant")]
         public async Task<IActionResult> Index()
         {
@@ -26,17 +27,48 @@ namespace ProjectsDashboards.Controllers
                 .Include(p => p.PaymentClaims)
                 .Include(p => p.VariationOrders)
                 .ToListAsync();
+
+            // ========== DECRYPT ALL FINANCIAL DATA ==========
+            foreach (var project in projects)
+            {
+                // Decrypt Contract Value
+                if (!string.IsNullOrEmpty(project.EncryptedContractValue))
+                {
+                    project.ContractValue = _encryption.DecryptPriceNullable(project.EncryptedContractValue);
+                }
+
+                // Decrypt Payment Claims
+                if (project.PaymentClaims != null)
+                {
+                    foreach (var claim in project.PaymentClaims)
+                    {
+                        if (!string.IsNullOrEmpty(claim.EncryptedClaimAmount))
+                        {
+                            claim.ClaimAmount = _encryption.DecryptPrice(claim.EncryptedClaimAmount);
+                        }
+                    }
+                }
+
+                // Decrypt Variation Orders
+                if (project.VariationOrders != null)
+                {
+                    foreach (var vo in project.VariationOrders)
+                    {
+                        if (!string.IsNullOrEmpty(vo.EncryptedVOAmount))
+                        {
+                            vo.VOAmount = _encryption.DecryptPrice(vo.EncryptedVOAmount);
+                        }
+                    }
+                }
+            }
+
             return View(projects);
         }
 
-        // GET: Projects/Details/5 (Accessible by Owner, Accountant, Staff)
         [Authorize(Roles = "Owner,Accountant,Staff")]
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
+            if (id == null) return NotFound();
 
             var project = await _context.Projects
                 .Include(p => p.CreatedByUser)
@@ -44,9 +76,36 @@ namespace ProjectsDashboards.Controllers
                 .Include(p => p.VariationOrders)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
-            if (project == null)
+            if (project == null) return NotFound();
+
+            // Decrypt Contract Value
+            if (!string.IsNullOrEmpty(project.EncryptedContractValue))
             {
-                return NotFound();
+                project.ContractValue = _encryption.DecryptPriceNullable(project.EncryptedContractValue);
+            }
+
+            // Decrypt Payment Claims
+            if (project.PaymentClaims != null)
+            {
+                foreach (var claim in project.PaymentClaims)
+                {
+                    if (!string.IsNullOrEmpty(claim.EncryptedClaimAmount))
+                    {
+                        claim.ClaimAmount = _encryption.DecryptPrice(claim.EncryptedClaimAmount);
+                    }
+                }
+            }
+
+            // Decrypt Variation Orders
+            if (project.VariationOrders != null)
+            {
+                foreach (var vo in project.VariationOrders)
+                {
+                    if (!string.IsNullOrEmpty(vo.EncryptedVOAmount))
+                    {
+                        vo.VOAmount = _encryption.DecryptPrice(vo.EncryptedVOAmount);
+                    }
+                }
             }
 
             return View(project);
@@ -67,6 +126,12 @@ namespace ProjectsDashboards.Controllers
         {
             if (ModelState.IsValid)
             {
+                // Encrypt the Contract Value before saving
+                if (project.ContractValue.HasValue)
+                {
+                    project.EncryptedContractValue = _encryption.EncryptPriceNullable(project.ContractValue);
+                }
+
                 project.CreatedBy = int.Parse(User.FindFirstValue("UserId") ?? "0");
                 project.CreatedAt = DateTime.Now;
 
@@ -77,23 +142,6 @@ namespace ProjectsDashboards.Controllers
             }
             return View(project);
         }
-
-        // GET: Projects/Edit/5 (Accessible by Owner and Staff)
-        //[Authorize(Roles = "Owner,Staff")]
-        //public async Task<IActionResult> Edit(int? id)
-        //{
-        //    if (id == null)
-        //    {
-        //        return NotFound();
-        //    }
-
-        //    var project = await _context.Projects.FindAsync(id);
-        //    if (project == null)
-        //    {
-        //        return NotFound();
-        //    }
-        //    return View(project);
-        //}
 
         // GET: Projects/Edit/5 (Accessible by Owner and Staff)
         [Authorize(Roles = "Owner,Staff")]
@@ -113,43 +161,15 @@ namespace ProjectsDashboards.Controllers
             {
                 return NotFound();
             }
+
+            // Decrypt Contract Value for display in edit form
+            if (!string.IsNullOrEmpty(project.EncryptedContractValue))
+            {
+                project.ContractValue = _encryption.DecryptPriceNullable(project.EncryptedContractValue);
+            }
+
             return View(project);
         }
-
-        // POST: Projects/Edit/5
-        //[HttpPost]
-        //[ValidateAntiForgeryToken]
-        //[Authorize(Roles = "Owner,Staff")]
-        //public async Task<IActionResult> Edit(int id, [Bind("Id,ProjectName,ProjectLocation,Scope,ContractStartDate,ContractEndDate,RevisedEndDate,ContractValue,CreatedBy,CreatedAt")] Project project)
-        //{
-        //    if (id != project.Id)
-        //    {
-        //        return NotFound();
-        //    }
-
-        //    if (ModelState.IsValid)
-        //    {
-        //        try
-        //        {
-        //            _context.Update(project);
-        //            await _context.SaveChangesAsync();
-        //            TempData["Success"] = "Project updated successfully!";
-        //        }
-        //        catch (DbUpdateConcurrencyException)
-        //        {
-        //            if (!ProjectExists(project.Id))
-        //            {
-        //                return NotFound();
-        //            }
-        //            else
-        //            {
-        //                throw;
-        //            }
-        //        }
-        //        return RedirectToAction(nameof(Index));
-        //    }
-        //    return View(project);
-        //}
 
         // POST: Projects/Edit/5
         [HttpPost]
@@ -166,7 +186,29 @@ namespace ProjectsDashboards.Controllers
             {
                 try
                 {
-                    _context.Update(project);
+                    var existingProject = await _context.Projects.FindAsync(id);
+                    if (existingProject == null)
+                    {
+                        return NotFound();
+                    }
+
+                    // Update non-encrypted fields
+                    existingProject.ProjectName = project.ProjectName;
+                    existingProject.ProjectLocation = project.ProjectLocation;
+                    existingProject.Scope = project.Scope;
+                    existingProject.ContractStartDate = project.ContractStartDate;
+                    existingProject.ContractEndDate = project.ContractEndDate;
+                    existingProject.RevisedEndDate = project.RevisedEndDate;
+                    existingProject.CreatedBy = project.CreatedBy;
+                    existingProject.CreatedAt = project.CreatedAt;
+
+                    // Encrypt and update Contract Value if changed
+                    if (project.ContractValue.HasValue)
+                    {
+                        existingProject.EncryptedContractValue = _encryption.EncryptPriceNullable(project.ContractValue);
+                    }
+
+                    _context.Update(existingProject);
                     await _context.SaveChangesAsync();
                     TempData["Success"] = "Project updated successfully!";
                 }
@@ -187,7 +229,7 @@ namespace ProjectsDashboards.Controllers
         }
 
         // GET: Projects/Delete/5 (Accessible by Owner and Staff)
-        [Authorize(Roles = "Owner,Staff")] // CHANGED: Added Staff
+        [Authorize(Roles = "Owner,Staff")]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null)
@@ -206,6 +248,12 @@ namespace ProjectsDashboards.Controllers
                 return NotFound();
             }
 
+            // Decrypt for display
+            if (!string.IsNullOrEmpty(project.EncryptedContractValue))
+            {
+                project.ContractValue = _encryption.DecryptPriceNullable(project.EncryptedContractValue);
+            }
+
             // Show warning if there are related records
             var paymentClaimsCount = project.PaymentClaims?.Count ?? 0;
             var variationOrdersCount = project.VariationOrders?.Count ?? 0;
@@ -221,7 +269,7 @@ namespace ProjectsDashboards.Controllers
         // POST: Projects/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Owner,Staff")] // CHANGED: Added Staff
+        [Authorize(Roles = "Owner,Staff")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var project = await _context.Projects

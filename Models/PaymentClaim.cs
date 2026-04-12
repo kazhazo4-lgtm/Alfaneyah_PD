@@ -14,11 +14,21 @@ namespace ProjectsDashboards.Models
         [ForeignKey("Project")]
         public int ProjectId { get; set; }
 
+        // ENCRYPTED: Database stores encrypted value
+        [Display(Name = "Claim Amount")]
+        public string? EncryptedClaimAmount { get; set; }
+
+        // For display/editing (not stored in database)
+        [NotMapped]
         [Required]
-        [Column(TypeName = "decimal(18, 2)")]
         [Display(Name = "Claim Amount")]
         [DisplayFormat(DataFormatString = "{0:N0}", ApplyFormatInEditMode = true)]
-        public decimal ClaimAmount { get; set; }
+        public decimal ClaimAmount
+        {
+            get => _claimAmount;
+            set => _claimAmount = value;
+        }
+        private decimal _claimAmount;
 
         [Required]
         [Column(TypeName = "date")]
