@@ -57,6 +57,17 @@
                     </li>
                 }
 
+                @if (User.Identity.IsAuthenticated && User.IsInRole("Owner"))
+                {
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="VisitorManagement" asp-action="Index">
+                            <i class="fas fa-shield-alt me-2"></i>
+                            <span>Visitor Management</span>
+                            <span class="badge bg-danger ms-2" id="redFlagCount">!</span>
+                        </a>
+                    </li>
+                }
+
                 @if (User.IsInRole("Owner") || User.IsInRole("Staff"))
                 {
                     <li class="nav-item">

@@ -13,6 +13,8 @@ namespace ProjectsDashboards.Models
         public DbSet<Project> Projects { get; set; }
         public DbSet<PaymentClaim> PaymentClaims { get; set; }
         public DbSet<VariationOrder> VariationOrders { get; set; }
+        public DbSet<LoginAttempt> LoginAttempts { get; set; }
+        public DbSet<BlockedVisitor> BlockedVisitors { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -43,6 +45,18 @@ namespace ProjectsDashboards.Models
                 new User { ID = 2, FullName = "Accountant", Email = "accountant@example.com", PasswordHash = "acc123", Role = "Accountant" },
                 new User { ID = 3, FullName = "Staff", Email = "staff@example.com", PasswordHash = "staff123", Role = "Staff" }
             );
+
+            modelBuilder.Entity<LoginAttempt>()
+    .HasIndex(l => l.EmailOrName)
+    .HasDatabaseName("IX_LoginAttempts_EmailOrName");
+
+            modelBuilder.Entity<LoginAttempt>()
+                .HasIndex(l => l.AttemptTime)
+                .HasDatabaseName("IX_LoginAttempts_AttemptTime");
+
+            modelBuilder.Entity<BlockedVisitor>()
+                .HasIndex(b => b.EmailOrName)
+                .HasDatabaseName("IX_BlockedVisitors_EmailOrName");
         }
     }
 }

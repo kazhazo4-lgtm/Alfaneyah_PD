@@ -22,6 +22,9 @@ namespace ProjectsDashboards.Models
         [StringLength(50)]
         public string? Role { get; set; }
 
+        [Display(Name = "Created At")]
+        public DateTime? CreatedAt { get; set; }
+
         // Navigation property
         public ICollection<Project>? CreatedProjects { get; set; }
     }
